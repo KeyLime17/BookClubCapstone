@@ -26,6 +26,15 @@ export default function AppLayout({ children }: PropsWithChildren) {
                 >
                   Profile
                 </Link>
+                {/* NEW: logout as POST */}
+                <Link
+                  href="/logout"
+                  method="post"
+                  as="button"
+                  className="rounded px-3 py-1 text-sm ring-1 ring-gray-300 hover:bg-gray-100"
+                >
+                  Log out
+                </Link>
               </>
             ) : (
               <>

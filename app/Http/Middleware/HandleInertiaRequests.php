@@ -36,16 +36,20 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
-
-        return [
-            ...parent::share($request),
-            'name' => config('app.name'),
-            'quote' => ['message' => trim($message), 'author' => trim($author)],
+        return array_merge(parent::share($request), [
             'auth' => [
-                'user' => $request->user(),
+                'user' => function () use ($request) {
+                    $u = $request->user();   // GenericUser when using 'database' provider
+                    if (!$u) return null;
+
+                    // Map the fields explicitly (avoid ->only() which is Eloquent-specific)
+                    return [
+                        'id'    => $u->id ?? null,
+                        'name'  => $u->name ?? null,
+                        'email' => $u->email ?? null,
+                    ];
+                },
             ],
-            'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
-        ];
+        ]);
     }
 }

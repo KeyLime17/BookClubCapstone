@@ -3,17 +3,14 @@
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-// Home
-Route::get('/', function () {
-    return Inertia::render('Home');
-})->name('home');
+Route::get('/', fn () => Inertia::render('Home'))->name('home');
+Route::get('/catalog', fn () => Inertia::render('Catalog'))->name('catalog');
 
-// Catalog
-Route::get('/catalog', function () {
-    return Inertia::render('Catalog');
-})->name('catalog');
+Route::middleware('auth')->group(function () {
+    Route::get('/clubs/private', fn () => Inertia::render('Home', ['note' => 'Private clubs (auth only)']))
+        ->name('clubs.private');
+});
 
-// Private clubs placeholder (we’ll gate later)
-Route::get('/clubs/private', function () {
-    return Inertia::render('Home', ['note' => 'Private clubs placeholder']);
-})->name('clubs.private');
+require __DIR__.'/auth.php'; 
+
+
