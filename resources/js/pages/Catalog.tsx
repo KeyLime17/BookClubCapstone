@@ -1,6 +1,7 @@
 import AppLayout from "@/layouts/AppLayout";
 import { router } from "@inertiajs/react";
 import { useEffect, useState } from "react";
+import { Link } from "@inertiajs/react";
 
 type Book = {
   id: number;
@@ -113,14 +114,14 @@ export default function Catalog({ books, genres, filters }: Props) {
       {/* Results */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {books.data.map((b) => (
-          <article key={b.id} className="rounded-lg border bg-white p-4">
+          <Link key={b.id} href={`/books/${b.id}`} className="rounded-lg border bg-white p-4 block hover:shadow">
             <div className="mb-3 aspect-[3/4] w-full overflow-hidden rounded bg-gray-100" />
             <h3 className="font-semibold">{b.title}</h3>
             <p className="text-sm text-gray-600">{b.author} · {b.genre}</p>
             <p className="text-xs text-gray-500">
               {b.released_at ? new Date(b.released_at).getFullYear() : "—"}
             </p>
-          </article>
+          </Link>
         ))}
       </div>
 
