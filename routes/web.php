@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\BookController;
+use App\Http\Controllers\BookRatingController;
 
 // Home page → renders resources/js/Pages/Home.tsx
 Route::get('/', fn () => Inertia::render('Home'))->name('home');
@@ -17,8 +18,12 @@ Route::get('/catalog', [CatalogController::class, 'index'])->name('catalog');
 Route::middleware('auth')->group(function () {
     Route::get('/clubs/private', fn () => Inertia::render('Home', ['note' => 'Private clubs (auth only)']))
         ->name('clubs.private');
+
+    Route::post('/books/{id}/rate',   [BookRatingController::class, 'upsert'])->name('books.rate');
+    Route::delete('/books/{id}/rate', [BookRatingController::class, 'destroy'])->name('books.rate.destroy');
 });
 //Read-only book page. We take a numeric {id} and fetch the record
 Route::get('/books/{id}', [BookController::class, 'show'])->name('books.show');
+
 
 require __DIR__.'/auth.php';
