@@ -9,14 +9,20 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-    class Message extends Model
+    public function up(): void
     {
-        protected $fillable = ['club_id','user_id','type','body'];
-        protected $casts = ['created_at' => 'datetime'];
+        Schema::create('messages', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('club_id')->constrained('clubs')->cascadeOnDelete();
+            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete(); // null => system messages
+            $table->enum('type', ['text','system'])->default('text');
+            $table->text('body'); // sanitized HTML or plain text; we'll validate on input
+            $table->timestamps();
 
-        public function club() { return $this->belongsTo(Club::class); }
-        public function user() { return $this->belongsTo(User::class); }
+            $table->index(['club_id','created_at']);
+        });
     }
+
 
     /**
      * Reverse the migrations.

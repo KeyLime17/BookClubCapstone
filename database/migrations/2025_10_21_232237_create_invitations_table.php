@@ -9,14 +9,19 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-    class Invitation extends Model
+    public function up(): void
     {
-        protected $fillable = ['club_id','inviter_id','invitee_id','email','token','expires_at','accepted_at'];
-        protected $casts = ['expires_at'=>'datetime','accepted_at'=>'datetime'];
-
-        public function club()     { return $this->belongsTo(Club::class); }
-        public function inviter()  { return $this->belongsTo(User::class, 'inviter_id'); }
-        public function invitee()  { return $this->belongsTo(User::class, 'invitee_id'); }
+        Schema::create('invitations', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('club_id')->constrained('clubs')->cascadeOnDelete();
+            $table->foreignId('inviter_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('invitee_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->string('email')->nullable(); // invite by email (optional)
+            $table->string('token', 64)->unique();
+            $table->timestamp('expires_at')->nullable();
+            $table->timestamp('accepted_at')->nullable();
+            $table->timestamps();
+        });
     }
 
     /**
