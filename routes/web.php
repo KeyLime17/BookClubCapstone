@@ -24,6 +24,7 @@ Route::middleware('auth')->group(function () {
 });
 //Read-only book page. We take a numeric {id} and fetch the record
 Route::get('/books/{id}', [BookController::class, 'show'])->name('books.show');
+Route::get('/test-chat', fn() => Inertia::render('PublicChatTest'));
 
 
 require __DIR__.'/auth.php';
