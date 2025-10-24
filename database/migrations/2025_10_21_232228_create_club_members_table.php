@@ -11,18 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('messages', function (Blueprint $table) {
+        Schema::create('club_members', function (Blueprint $table) {
             $table->id();
             $table->foreignId('club_id')->constrained('clubs')->cascadeOnDelete();
-            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete(); // null => system messages
-            $table->enum('type', ['text','system'])->default('text');
-            $table->text('body'); // sanitized HTML or plain text; we'll validate on input
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->enum('role', ['owner', 'moderator', 'member'])->default('member');
+            $table->timestamp('joined_at')->useCurrent();
             $table->timestamps();
 
-            $table->index(['club_id','created_at']);
+            $table->unique(['club_id', 'user_id']);
         });
     }
-
 
 
     /**

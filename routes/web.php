@@ -7,7 +7,7 @@ use App\Http\Controllers\BookController;
 use App\Http\Controllers\BookRatingController;
 
 // routes/web.php
-Route::get('/test-chat', fn () => Inertia::render('PublicChatTest'));
+Route::get('/test-chat', fn () => Inertia::render('PublicChat'));
 
 // Home page → renders resources/js/Pages/Home.tsx
 Route::get('/', fn () => Inertia::render('Home'))->name('home');

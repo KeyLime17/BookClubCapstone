@@ -1,0 +1,169 @@
+import React, { useEffect, useRef, useState } from 'react';
+
+type User = { id: number; name: string };
+type Message = { id: number; club_id: number; type: 'text'|'system'; body: string; created_at: string; user: User|null };
+
+type Props = {
+  bookId: number;
+  authToken?: string | null;
+};
+
+export default function ChatBox({ bookId, authToken = null }: Props) {
+  const [clubId, setClubId] = useState<number | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [body, setBody] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError]   = useState<string | null>(null);
+  const lastIdRef = useRef<number | null>(null);
+  const timerRef  = useRef<number | null>(null);
+
+  const safeJson = async (resp: Response) => {
+    const text = await resp.text();
+    try { return JSON.parse(text); } catch { return { __raw: text, __status: resp.status }; }
+  };
+
+  // Resolve the public club tied to this book
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await fetch(`/api/clubs?only_public=1&book_id=${bookId}`, {
+        credentials: 'include',
+        });
+        const json = await safeJson(resp);
+        if (!resp.ok) throw new Error(`Clubs query failed (${resp.status})`);
+
+        const first = json?.data?.[0] ?? json?.[0] ?? null;
+        if (!cancelled) {
+          setClubId(first?.id ?? null);
+        }
+      } catch (e: any) {
+        if (!cancelled) setError('Could not load discussion for this book.');
+        console.error('[ChatBox] resolve clubs error:', e);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [bookId]);
+
+  // Initial load of messages
+  useEffect(() => {
+    if (!clubId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await fetch(`/api/clubs/${clubId}/messages`);
+        const json = await safeJson(resp);
+        if (!resp.ok) throw new Error(`Messages fetch failed (${resp.status})`);
+
+        const data: Message[] = json?.data ?? json;
+        const ordered = [...data].reverse(); // oldest → newest
+        if (!cancelled) {
+          setMessages(ordered);
+          lastIdRef.current = ordered.length ? ordered[ordered.length - 1].id : null;
+        }
+      } catch (e: any) {
+        if (!cancelled) setError('Could not load messages.');
+        console.error('[ChatBox] initial messages error:', e);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [clubId]);
+
+  // Poll new messages every 2s
+  useEffect(() => {
+    if (!clubId) return;
+    const fetchNew = async () => {
+      try {
+        const resp = await fetch(`/api/clubs/${clubId}/messages`);
+        const json = await safeJson(resp);
+        if (!resp.ok) throw new Error(`Messages poll failed (${resp.status})`);
+
+        const newestFirst: Message[] = json?.data ?? json;
+        if (lastIdRef.current == null) return;
+        const newOnes = newestFirst.filter(m => m.id > lastIdRef.current!).reverse();
+        if (newOnes.length) {
+          setMessages(prev => [...prev, ...newOnes]);
+          lastIdRef.current = newOnes[newOnes.length - 1].id;
+        }
+      } catch (e) {
+        // Don’t spam the UI — just log; polling will try again next tick.
+        console.warn('[ChatBox] poll error:', e);
+      }
+    };
+    timerRef.current = window.setInterval(fetchNew, 2000);
+    return () => { if (timerRef.current) window.clearInterval(timerRef.current); };
+  }, [clubId]);
+
+  const send = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!clubId || !body.trim()) return;
+
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+
+    try {
+      const resp = await fetch(`/api/clubs/${clubId}/messages`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ body }),
+        credentials: 'include', // Sanctum cookie auth
+      });
+      const json = await safeJson(resp);
+      if (resp.status === 201) {
+        setBody('');
+        setMessages(prev => [...prev, json]);
+        lastIdRef.current = json.id ?? lastIdRef.current;
+      } else if (resp.status === 401) {
+        alert('Log in to send messages.');
+      } else {
+        console.error('[ChatBox] send failed:', json);
+        alert('Could not send message.');
+      }
+    } catch (e) {
+      console.error('[ChatBox] send error:', e);
+      alert('Network error.');
+    }
+  };
+
+  return (
+    <div className="w-full border rounded-xl p-3 flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">Discussion</h3>
+        {!clubId && !error && loading && (
+          <span className="text-sm opacity-70">Locating discussion…</span>
+        )}
+      </div>
+
+      <div className="h-64 overflow-y-auto space-y-2 border rounded-lg p-2 bg-white/50">
+        {loading && <div>Loading messages…</div>}
+        {error && <div className="text-red-600 text-sm">{error}</div>}
+        {!loading && !clubId && !error && (
+          <div className="opacity-70">No public discussion for this book yet.</div>
+        )}
+        {messages.map(m => (
+          <div key={m.id} className="text-sm">
+            <span className="font-medium">{m.user?.name ?? 'System'}:</span>{' '}
+            <span>{m.body}</span>
+            <span className="opacity-60 text-xs ml-2">
+              {new Date(m.created_at).toLocaleTimeString()}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <form onSubmit={send} className="flex gap-2">
+        <input
+          className="flex-1 border rounded-lg px-3 py-2"
+          placeholder="Write a message…"
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+        />
+        <button className="px-4 py-2 rounded-lg border" type="submit">Send</button>
+      </form>
+    </div>
+  );
+}

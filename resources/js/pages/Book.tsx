@@ -2,6 +2,7 @@ import AppLayout from "@/layouts/AppLayout";
 import { Link, router, usePage } from "@inertiajs/react";
 import { useState } from "react";
 import type { PageProps } from "@/types";
+import ChatBox from "@/components/ChatBox";
 
 type Book = {
   id: number;
@@ -160,10 +161,9 @@ export default function BookPage({ book, avg_rating, ratings_count, my_rating }:
         </section>
       </div>
 
-      {/* DISCUSSION: full width below the hero row */}
-      <section className="mt-6 rounded-lg border bg-white p-4">
-        <h2 className="mb-3 font-medium">Discussion</h2>
-        <p className="text-sm text-gray-600">Discussion threads and chat will appear here in a later milestone.</p>
+      {/* DISCUSSION: public club chat for this book */}
+      <section className="mt-6">
+        <ChatBox bookId={book.id} />
       </section>
     </AppLayout>
   );
