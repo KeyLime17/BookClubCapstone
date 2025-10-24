@@ -1,4 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
+import axios from 'axios';
+axios.defaults.withCredentials = true;
+
 
 type User = { id: number; name: string };
 type Message = { id: number; club_id: number; type: 'text'|'system'; body: string; created_at: string; user: User|null };
@@ -21,6 +24,18 @@ export default function ChatBox({ bookId, authToken = null }: Props) {
     const text = await resp.text();
     try { return JSON.parse(text); } catch { return { __raw: text, __status: resp.status }; }
   };
+  // Ensure Sanctum CSRF cookie exists (needed for POST with cookies)
+  const ensureCsrf = async () => {
+  try {
+    await axios.get('/sanctum/csrf-cookie');
+  } catch (e) {
+    console.error('[ChatBox] csrf-cookie error:', e);
+  }
+};
+
+// call it once when the component mounts
+useEffect(() => { ensureCsrf(); }, []);
+
 
   // Resolve the public club tied to this book
   useEffect(() => {
@@ -98,36 +113,42 @@ export default function ChatBox({ bookId, authToken = null }: Props) {
     return () => { if (timerRef.current) window.clearInterval(timerRef.current); };
   }, [clubId]);
 
-  const send = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!clubId || !body.trim()) return;
+    const send = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!clubId || !body.trim()) return;
 
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+        const token = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content;
 
-    try {
-      const resp = await fetch(`/api/clubs/${clubId}/messages`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ body }),
-        credentials: 'include', // Sanctum cookie auth
-      });
-      const json = await safeJson(resp);
-      if (resp.status === 201) {
-        setBody('');
-        setMessages(prev => [...prev, json]);
-        lastIdRef.current = json.id ?? lastIdRef.current;
-      } else if (resp.status === 401) {
-        alert('Log in to send messages.');
-      } else {
-        console.error('[ChatBox] send failed:', json);
-        alert('Could not send message.');
-      }
-    } catch (e) {
-      console.error('[ChatBox] send error:', e);
-      alert('Network error.');
-    }
-  };
+        try {
+            const resp = await fetch(`/clubs/${clubId}/messages`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': token || '',  // CSRF for web routes
+            },
+            credentials: 'include', // send session cookie
+            body: JSON.stringify({ body }),
+            });
+
+            const text = await resp.text();
+            const json = (() => { try { return JSON.parse(text); } catch { return null; } })();
+
+            if (resp.status === 201) {
+            setBody('');
+            setMessages(prev => [...prev, json]);
+            lastIdRef.current = json?.id ?? lastIdRef.current;
+            } else if (resp.status === 401) {
+            alert('Log in to send messages.');
+            } else {
+            console.error('[ChatBox] send failed:', resp.status, text);
+            alert('Could not send message.');
+            }
+        } catch (err) {
+            console.error('[ChatBox] send error:', err);
+            alert('Network or server error.');
+        }
+    };
+
 
   return (
     <div className="w-full border rounded-xl p-3 flex flex-col gap-3">

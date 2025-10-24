@@ -5,6 +5,7 @@ use Inertia\Inertia;
 use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\BookController;
 use App\Http\Controllers\BookRatingController;
+use App\Http\Controllers\MessageController;
 
 // routes/web.php
 Route::get('/test-chat', fn () => Inertia::render('PublicChat'));
@@ -27,6 +28,9 @@ Route::middleware('auth')->group(function () {
 });
 //Read-only book page. We take a numeric {id} and fetch the record
 Route::get('/books/{id}', [BookController::class, 'show'])->name('books.show');
+
+Route::post('/clubs/{club}/messages', [MessageController::class, 'store'])
+    ->middleware('auth'); // uses your logged-in web session + CSRF
 
 
 require __DIR__.'/auth.php';
