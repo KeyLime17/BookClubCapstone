@@ -29,8 +29,9 @@ Route::middleware('auth')->group(function () {
 //Read-only book page. We take a numeric {id} and fetch the record
 Route::get('/books/{id}', [BookController::class, 'show'])->name('books.show');
 
-Route::post('/clubs/{club}/messages', [MessageController::class, 'store'])
-    ->middleware('auth'); // uses your logged-in web session + CSRF
+
+Route::post('/clubs/{club}/messages', [MessageController::class, 'store'])->middleware('auth');
+
 
 
 require __DIR__.'/auth.php';

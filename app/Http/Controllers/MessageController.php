@@ -16,23 +16,17 @@ class MessageController extends Controller
      */
     public function index(Request $request, Club $club)
     {
-        $user = $request->user();
-
-        $canView = Gate::forUser($user)->allows('view', $club);
-
-        if (!$canView) {
-            // Special case: guest viewing a public club
-            if ($club->is_public && !$user) {
-                // allowed
-            } else {
-                abort(403);
-            }
+        if (!$club->is_public) {
+            $this->authorize('view', $club);
         }
 
-        return $club->messages()
-            ->with('user:id,name')
-            ->orderByDesc('id')
-            ->cursorPaginate(30);
+        $messages = $club->messages()
+            ->with(['user:id,name'])
+            ->orderBy('id', 'desc')
+            ->limit(30)
+            ->get();
+
+        return response()->json($messages, 200);
     }
 
     /**
@@ -41,25 +35,28 @@ class MessageController extends Controller
      */
     public function store(Request $request, Club $club)
     {
-        $this->authorize('post', $club);
+        // public-only for now; private flow would require membership/invite
+        if (!$club->is_public) {
+            return response()->json(['message' => 'Private club messages require an invite.'], 403);
+        }
 
         $data = $request->validate([
             'body' => ['required', 'string', 'max:2000'],
         ]);
 
-        // If you allow HTML, sanitize here (e.g., mews/purifier). For now plain text is best.
+        /** @var \App\Models\User $user */
+        $user = $request->user();
 
-        $msg = $club->messages()->create([
-            'user_id' => $request->user()->id,
+        $message = $club->messages()->create([
+            'user_id' => $user->id,
             'type'    => 'text',
             'body'    => $data['body'],
         ]);
 
-        // Broadcast to listeners (real-time)
-        broadcast(new \App\Events\MessageCreated(
-            $msg->load('user:id,name', 'club:id,is_public')
-        ))->toOthers();
-
-        return response()->json($msg, 201);
+        // Return the shape the frontend expects (include user name)
+        return response()->json(
+            $message->load(['user:id,name']),
+            201
+        );
     }
 }

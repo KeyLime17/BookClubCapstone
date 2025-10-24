@@ -1,66 +1,67 @@
 import React, { useEffect, useRef, useState } from 'react';
-import axios from 'axios';
-axios.defaults.withCredentials = true;
-
 
 type User = { id: number; name: string };
-type Message = { id: number; club_id: number; type: 'text'|'system'; body: string; created_at: string; user: User|null };
+type Message = {
+  id: number;
+  club_id: number;
+  type: 'text' | 'system';
+  body: string;
+  created_at: string;
+  user: User | null;
+};
 
 type Props = {
   bookId: number;
-  authToken?: string | null;
 };
 
-export default function ChatBox({ bookId, authToken = null }: Props) {
+export default function ChatBox({ bookId }: Props) {
   const [clubId, setClubId] = useState<number | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [body, setBody] = useState('');
   const [loading, setLoading] = useState(true);
-  const [error, setError]   = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const lastIdRef = useRef<number | null>(null);
-  const timerRef  = useRef<number | null>(null);
+  const timerRef = useRef<number | null>(null);
 
   const safeJson = async (resp: Response) => {
     const text = await resp.text();
-    try { return JSON.parse(text); } catch { return { __raw: text, __status: resp.status }; }
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { __raw: text, __status: resp.status };
+    }
   };
-  // Ensure Sanctum CSRF cookie exists (needed for POST with cookies)
-  const ensureCsrf = async () => {
-  try {
-    await axios.get('/sanctum/csrf-cookie');
-  } catch (e) {
-    console.error('[ChatBox] csrf-cookie error:', e);
-  }
-};
 
-// call it once when the component mounts
-useEffect(() => { ensureCsrf(); }, []);
-
-
-  // Resolve the public club tied to this book
-  useEffect(() => {
+  // Fetch the public club linked to this book
+    useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
+        try {
         const resp = await fetch(`/api/clubs?only_public=1&book_id=${bookId}`, {
-        credentials: 'include',
+            credentials: 'include',
         });
         const json = await safeJson(resp);
         if (!resp.ok) throw new Error(`Clubs query failed (${resp.status})`);
 
         const first = json?.data?.[0] ?? json?.[0] ?? null;
+
+        // ✅ force a numeric id and log it so we see what's happening
+        const resolvedId = Number(first?.id);
+        console.log('[ChatBox] resolved clubId for book', bookId, '=>', resolvedId, first);
+
         if (!cancelled) {
-          setClubId(first?.id ?? null);
+            setClubId(Number.isFinite(resolvedId) ? resolvedId : null);
         }
-      } catch (e: any) {
+        } catch (e: any) {
         if (!cancelled) setError('Could not load discussion for this book.');
         console.error('[ChatBox] resolve clubs error:', e);
-      } finally {
+        } finally {
         if (!cancelled) setLoading(false);
-      }
+        }
     })();
     return () => { cancelled = true; };
-  }, [bookId]);
+    }, [bookId]);
+
 
   // Initial load of messages
   useEffect(() => {
@@ -71,12 +72,13 @@ useEffect(() => { ensureCsrf(); }, []);
         const resp = await fetch(`/api/clubs/${clubId}/messages`);
         const json = await safeJson(resp);
         if (!resp.ok) throw new Error(`Messages fetch failed (${resp.status})`);
-
         const data: Message[] = json?.data ?? json;
         const ordered = [...data].reverse(); // oldest → newest
         if (!cancelled) {
           setMessages(ordered);
-          lastIdRef.current = ordered.length ? ordered[ordered.length - 1].id : null;
+          lastIdRef.current = ordered.length
+            ? ordered[ordered.length - 1].id
+            : null;
         }
       } catch (e: any) {
         if (!cancelled) setError('Could not load messages.');
@@ -85,10 +87,12 @@ useEffect(() => { ensureCsrf(); }, []);
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [clubId]);
 
-  // Poll new messages every 2s
+  // Poll for new messages every 2s
   useEffect(() => {
     if (!clubId) return;
     const fetchNew = async () => {
@@ -96,59 +100,69 @@ useEffect(() => { ensureCsrf(); }, []);
         const resp = await fetch(`/api/clubs/${clubId}/messages`);
         const json = await safeJson(resp);
         if (!resp.ok) throw new Error(`Messages poll failed (${resp.status})`);
-
         const newestFirst: Message[] = json?.data ?? json;
         if (lastIdRef.current == null) return;
-        const newOnes = newestFirst.filter(m => m.id > lastIdRef.current!).reverse();
+        const newOnes = newestFirst
+          .filter((m) => m.id > lastIdRef.current!)
+          .reverse();
         if (newOnes.length) {
-          setMessages(prev => [...prev, ...newOnes]);
+          setMessages((prev) => [...prev, ...newOnes]);
           lastIdRef.current = newOnes[newOnes.length - 1].id;
         }
       } catch (e) {
-        // Don’t spam the UI — just log; polling will try again next tick.
         console.warn('[ChatBox] poll error:', e);
       }
     };
     timerRef.current = window.setInterval(fetchNew, 2000);
-    return () => { if (timerRef.current) window.clearInterval(timerRef.current); };
+    return () => {
+      if (timerRef.current) window.clearInterval(timerRef.current);
+    };
   }, [clubId]);
 
-    const send = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!clubId || !body.trim()) return;
+  // Send message using web route (CSRF + session cookie)
+  const send = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!clubId || !body.trim()) return;
 
-        const token = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content;
+    const token = (
+      document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement
+    )?.content;
 
+    try {
+      const resp = await fetch(`/clubs/${clubId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': token || '',
+        },
+        credentials: 'include', // send Laravel session cookie
+        body: JSON.stringify({ body }),
+      });
+
+      const text = await resp.text();
+      const json = (() => {
         try {
-            const resp = await fetch(`/clubs/${clubId}/messages`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': token || '',  // CSRF for web routes
-            },
-            credentials: 'include', // send session cookie
-            body: JSON.stringify({ body }),
-            });
-
-            const text = await resp.text();
-            const json = (() => { try { return JSON.parse(text); } catch { return null; } })();
-
-            if (resp.status === 201) {
-            setBody('');
-            setMessages(prev => [...prev, json]);
-            lastIdRef.current = json?.id ?? lastIdRef.current;
-            } else if (resp.status === 401) {
-            alert('Log in to send messages.');
-            } else {
-            console.error('[ChatBox] send failed:', resp.status, text);
-            alert('Could not send message.');
-            }
-        } catch (err) {
-            console.error('[ChatBox] send error:', err);
-            alert('Network or server error.');
+          return JSON.parse(text);
+        } catch {
+          return null;
         }
-    };
+      })();
 
+      if (resp.status === 201) {
+        setBody('');
+        setMessages((prev) => [...prev, json]);
+        lastIdRef.current = json?.id ?? lastIdRef.current;
+      } else if (resp.status === 401) {
+        alert('Log in to send messages.');
+      } else {
+        console.error('[ChatBox] send failed:', resp.status, text);
+        alert('Could not send message.');
+      }
+    } catch (err) {
+      console.error('[ChatBox] send error:', err);
+      alert('Network or server error.');
+    }
+  };
 
   return (
     <div className="w-full border rounded-xl p-3 flex flex-col gap-3">
@@ -163,9 +177,11 @@ useEffect(() => { ensureCsrf(); }, []);
         {loading && <div>Loading messages…</div>}
         {error && <div className="text-red-600 text-sm">{error}</div>}
         {!loading && !clubId && !error && (
-          <div className="opacity-70">No public discussion for this book yet.</div>
+          <div className="opacity-70">
+            No public discussion for this book yet.
+          </div>
         )}
-        {messages.map(m => (
+        {messages.map((m) => (
           <div key={m.id} className="text-sm">
             <span className="font-medium">{m.user?.name ?? 'System'}:</span>{' '}
             <span>{m.body}</span>
@@ -183,7 +199,9 @@ useEffect(() => { ensureCsrf(); }, []);
           value={body}
           onChange={(e) => setBody(e.target.value)}
         />
-        <button className="px-4 py-2 rounded-lg border" type="submit">Send</button>
+        <button className="px-4 py-2 rounded-lg border" type="submit">
+          Send
+        </button>
       </form>
     </div>
   );

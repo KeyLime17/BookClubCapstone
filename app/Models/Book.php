@@ -1,0 +1,15 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Book extends Model
+{
+    protected $guarded = []; 
+
+    public function clubs()
+    {
+        return $this->hasMany(Club::class);
+    }
+}
