@@ -1,16 +1,12 @@
-import React from 'react';
-import PublicChatListener from '@/components/PublicChatListener';
+import PublicChatPoller from "@/components/PublicChatPoller";
 
 export default function PublicChatTest() {
-  // Change this to a valid public club ID from your database
-  const publicClubId = 1;
-
+  const clubId = 1; // set a real public club id
   return (
-    <div className="p-4">
-      <h1 className="text-lg font-semibold mb-2">Public Chat Listener</h1>
-      <p>Open the console and post a message to this club to see live events.</p>
-
-      <PublicChatListener clubId={publicClubId} />
+    <div className="p-6">
+      <h1 className="text-2xl font-semibold"> Public Chat (Polling)</h1>
+      <p>Open this page and POST a message to club {clubId}; it should appear within a couple seconds (logged in your network tab).</p>
+      <PublicChatPoller clubId={clubId} />
     </div>
   );
 }

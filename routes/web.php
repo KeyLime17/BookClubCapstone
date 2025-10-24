@@ -6,6 +6,9 @@ use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\BookController;
 use App\Http\Controllers\BookRatingController;
 
+// routes/web.php
+Route::get('/test-chat', fn () => Inertia::render('PublicChatTest'));
+
 // Home page → renders resources/js/Pages/Home.tsx
 Route::get('/', fn () => Inertia::render('Home'))->name('home');
 
@@ -24,7 +27,6 @@ Route::middleware('auth')->group(function () {
 });
 //Read-only book page. We take a numeric {id} and fetch the record
 Route::get('/books/{id}', [BookController::class, 'show'])->name('books.show');
-Route::get('/test-chat', fn() => Inertia::render('PublicChatTest'));
 
 
 require __DIR__.'/auth.php';
