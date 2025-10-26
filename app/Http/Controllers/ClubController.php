@@ -112,4 +112,29 @@ class ClubController extends Controller
 
         return response()->noContent();
     }
+    public function createPrivateForBook(\Illuminate\Http\Request $request, \App\Models\Book $book)
+{
+    $user = $request->user();
+
+    // Either reuse existing private club for this owner+book or create a new one
+    $club = \App\Models\Club::firstOrCreate(
+        [
+            'book_id'   => $book->id,
+            'owner_id'  => $user->id,
+            'is_public' => false,
+        ],
+        [
+            'name'      => 'Private: '.$book->title,
+        ]
+    );
+
+    // Ensure owner is a member with role=owner
+    $club->members()->firstOrCreate(
+        ['user_id' => $user->id],
+        ['role' => 'owner', 'joined_at' => now()]
+    );
+
+    return redirect()->route('clubs.chat', ['club' => $club->id]);
+}
+
 }

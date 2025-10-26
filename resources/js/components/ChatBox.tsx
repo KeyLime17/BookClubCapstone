@@ -12,9 +12,10 @@ type Message = {
 
 type Props = {
   bookId: number;
+  canPost?: boolean;
 };
 
-export default function ChatBox({ bookId }: Props) {
+export default function ChatBox({ bookId, canPost = false }: Props) {
   const [clubId, setClubId] = useState<number | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [body, setBody] = useState('');
@@ -22,48 +23,37 @@ export default function ChatBox({ bookId }: Props) {
   const [error, setError] = useState<string | null>(null);
   const lastIdRef = useRef<number | null>(null);
   const timerRef = useRef<number | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
 
   const safeJson = async (resp: Response) => {
     const text = await resp.text();
-    try {
-      return JSON.parse(text);
-    } catch {
-      return { __raw: text, __status: resp.status };
-    }
+    try { return JSON.parse(text); } catch { return { __raw: text, __status: resp.status }; }
   };
 
-  // Fetch the public club linked to this book
-    useEffect(() => {
+  // Resolve the public club for this book
+  useEffect(() => {
     let cancelled = false;
     (async () => {
-        try {
-        const resp = await fetch(`/api/clubs?only_public=1&book_id=${bookId}`, {
-            credentials: 'include',
-        });
+      try {
+        const resp = await fetch(`/api/clubs?only_public=1&book_id=${bookId}`, { credentials: 'include' });
         const json = await safeJson(resp);
         if (!resp.ok) throw new Error(`Clubs query failed (${resp.status})`);
 
         const first = json?.data?.[0] ?? json?.[0] ?? null;
-
-        // ✅ force a numeric id and log it so we see what's happening
         const resolvedId = Number(first?.id);
         console.log('[ChatBox] resolved clubId for book', bookId, '=>', resolvedId, first);
-
-        if (!cancelled) {
-            setClubId(Number.isFinite(resolvedId) ? resolvedId : null);
-        }
-        } catch (e: any) {
+        if (!cancelled) setClubId(Number.isFinite(resolvedId) ? resolvedId : null);
+      } catch (e: any) {
         if (!cancelled) setError('Could not load discussion for this book.');
         console.error('[ChatBox] resolve clubs error:', e);
-        } finally {
+      } finally {
         if (!cancelled) setLoading(false);
-        }
+      }
     })();
     return () => { cancelled = true; };
-    }, [bookId]);
+  }, [bookId]);
 
-
-  // Initial load of messages
+  // Initial load
   useEffect(() => {
     if (!clubId) return;
     let cancelled = false;
@@ -76,9 +66,7 @@ export default function ChatBox({ bookId }: Props) {
         const ordered = [...data].reverse(); // oldest → newest
         if (!cancelled) {
           setMessages(ordered);
-          lastIdRef.current = ordered.length
-            ? ordered[ordered.length - 1].id
-            : null;
+          lastIdRef.current = ordered.length ? ordered[ordered.length - 1].id : null;
         }
       } catch (e: any) {
         if (!cancelled) setError('Could not load messages.');
@@ -87,12 +75,10 @@ export default function ChatBox({ bookId }: Props) {
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [clubId]);
 
-  // Poll for new messages every 2s
+  // Poll every 2s
   useEffect(() => {
     if (!clubId) return;
     const fetchNew = async () => {
@@ -102,11 +88,9 @@ export default function ChatBox({ bookId }: Props) {
         if (!resp.ok) throw new Error(`Messages poll failed (${resp.status})`);
         const newestFirst: Message[] = json?.data ?? json;
         if (lastIdRef.current == null) return;
-        const newOnes = newestFirst
-          .filter((m) => m.id > lastIdRef.current!)
-          .reverse();
+        const newOnes = newestFirst.filter(m => m.id > lastIdRef.current!).reverse();
         if (newOnes.length) {
-          setMessages((prev) => [...prev, ...newOnes]);
+          setMessages(prev => [...prev, ...newOnes]);
           lastIdRef.current = newOnes[newOnes.length - 1].id;
         }
       } catch (e) {
@@ -114,44 +98,37 @@ export default function ChatBox({ bookId }: Props) {
       }
     };
     timerRef.current = window.setInterval(fetchNew, 2000);
-    return () => {
-      if (timerRef.current) window.clearInterval(timerRef.current);
-    };
+    return () => { if (timerRef.current) window.clearInterval(timerRef.current); };
   }, [clubId]);
 
-  // Send message using web route (CSRF + session cookie)
+  // Auto-scroll to bottom when messages append
+  useEffect(() => {
+    if (!listRef.current) return;
+    listRef.current.scrollTop = listRef.current.scrollHeight;
+  }, [messages.length]);
+
+  // Send via web route (session + CSRF)
   const send = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!clubId || !body.trim()) return;
 
-    const token = (
-      document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement
-    )?.content;
+    const token = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '';
 
     try {
       const resp = await fetch(`/clubs/${clubId}/messages`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': token || '',
-        },
-        credentials: 'include', // send Laravel session cookie
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token },
+        credentials: 'include',
         body: JSON.stringify({ body }),
       });
 
       const text = await resp.text();
-      const json = (() => {
-        try {
-          return JSON.parse(text);
-        } catch {
-          return null;
-        }
-      })();
+      const json = (() => { try { return JSON.parse(text); } catch { return null; } })();
 
-      if (resp.status === 201) {
+      if (resp.status === 201 && json) {
         setBody('');
-        setMessages((prev) => [...prev, json]);
-        lastIdRef.current = json?.id ?? lastIdRef.current;
+        setMessages(prev => [...prev, json]);
+        lastIdRef.current = json.id ?? lastIdRef.current;
       } else if (resp.status === 401) {
         alert('Log in to send messages.');
       } else {
@@ -173,15 +150,16 @@ export default function ChatBox({ bookId }: Props) {
         )}
       </div>
 
-      <div className="h-64 overflow-y-auto space-y-2 border rounded-lg p-2 bg-white/50">
+      <div
+        ref={listRef}
+        className="h-64 overflow-y-auto space-y-2 border rounded-lg p-2 bg-white/50"
+      >
         {loading && <div>Loading messages…</div>}
         {error && <div className="text-red-600 text-sm">{error}</div>}
         {!loading && !clubId && !error && (
-          <div className="opacity-70">
-            No public discussion for this book yet.
-          </div>
+          <div className="opacity-70">No public discussion for this book yet.</div>
         )}
-        {messages.map((m) => (
+        {messages.map(m => (
           <div key={m.id} className="text-sm">
             <span className="font-medium">{m.user?.name ?? 'System'}:</span>{' '}
             <span>{m.body}</span>
@@ -192,17 +170,34 @@ export default function ChatBox({ bookId }: Props) {
         ))}
       </div>
 
-      <form onSubmit={send} className="flex gap-2">
-        <input
-          className="flex-1 border rounded-lg px-3 py-2"
-          placeholder="Write a message…"
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-        />
-        <button className="px-4 py-2 rounded-lg border" type="submit">
-          Send
-        </button>
-      </form>
+      {canPost ? (
+        <form onSubmit={send} className="flex gap-2">
+          <input
+            className="flex-1 border rounded-lg px-3 py-2"
+            placeholder="Write a message…"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (body.trim() && clubId) void send(e as any);
+              }
+            }}
+          />
+          <button
+            className="px-4 py-2 rounded-lg border"
+            type="submit"
+            disabled={!body.trim() || !clubId}
+            title={!clubId ? 'Loading discussion…' : undefined}
+          >
+            Send
+          </button>
+        </form>
+      ) : (
+        <div className="text-sm opacity-70">
+          Log in to participate in the discussion.
+        </div>
+      )}
     </div>
   );
 }

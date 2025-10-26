@@ -6,6 +6,7 @@ use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\BookController;
 use App\Http\Controllers\BookRatingController;
 use App\Http\Controllers\MessageController;
+use App\Http\Controllers\ClubController;
 
 // routes/web.php
 Route::get('/test-chat', fn () => Inertia::render('PublicChat'));
@@ -32,6 +33,23 @@ Route::get('/books/{id}', [BookController::class, 'show'])->name('books.show');
 
 Route::post('/clubs/{club}/messages', [MessageController::class, 'store'])->middleware('auth');
 
+Route::middleware('auth')->group(function () {
+    // Create (or reuse) a private club for a given book, then redirect to chat
+    Route::post('/books/{book}/private-club', [ClubController::class, 'createPrivateForBook'])
+        ->name('books.private-club.create');
+
+    // Private club chat page (Inertia)
+    Route::get('/clubs/{club}/chat', function (\App\Models\Club $club) {
+        // Policy: only members/owner can view private clubs
+        if (!$club->is_public) {
+            // throws 403 if unauthorized via your ClubPolicy
+            app(\Illuminate\Contracts\Auth\Access\Gate::class)->authorize('view', $club);
+        }
+        return Inertia::render('PrivateClubChat', [
+            'club' => $club->only(['id','name','book_id','is_public']),
+        ]);
+    })->name('clubs.chat');
+});
 
 
 require __DIR__.'/auth.php';

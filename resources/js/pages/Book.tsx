@@ -162,8 +162,28 @@ export default function BookPage({ book, avg_rating, ratings_count, my_rating }:
       </div>
 
       {/* DISCUSSION: public club chat for this book */}
-      <section className="mt-6">
-        <ChatBox bookId={book.id} />
+      <section className="mt-6 space-y-4">
+        <ChatBox bookId={book.id} canPost={!!auth?.user} />
+
+        {auth?.user && (
+          <form
+            method="post"
+            action={`/books/${book.id}/private-club`}
+            className="pt-2"
+          >
+            {/* Laravel injects the CSRF token automatically with @csrf in Blade,
+                but since this is Inertia/React, add a hidden input via meta: */}
+            <input type="hidden" name="_token" value={
+              (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || ''
+            } />
+            <button
+              type="submit"
+              className="text-sm px-3 py-2 rounded border hover:bg-gray-50"
+            >
+              Create a private chat for this book
+            </button>
+          </form>
+        )}
       </section>
     </AppLayout>
   );
