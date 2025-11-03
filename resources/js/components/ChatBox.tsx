@@ -25,6 +25,7 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Pro
   const lastIdRef = useRef<number | null>(null);
   const timerRef = useRef<number | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const messagesBase = clubIdOverride ? '' : '/api';
 
   const safeJson = async (resp: Response) => {
     const text = await resp.text();
@@ -54,7 +55,7 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Pro
     })();
     return () => { cancelled = true; };
   }, [bookId, clubIdOverride]);
-  
+
   // a micro effect so state follows the prop if it ever changes
   useEffect(() => {
   if (clubIdOverride) setClubId(clubIdOverride);
@@ -67,14 +68,18 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Pro
     let cancelled = false;
     (async () => {
       try {
-        const resp = await fetch(`/api/clubs/${clubId}/messages`);
+        const resp = await fetch(`${messagesBase}/clubs/${clubId}/messages`, {
+          credentials: 'include',
+        });
         const json = await safeJson(resp);
         if (!resp.ok) throw new Error(`Messages fetch failed (${resp.status})`);
         const data: Message[] = json?.data ?? json;
-        const ordered = [...data].reverse(); // oldest → newest
+        const ordered = [...data].reverse(); // oldest -> newest
         if (!cancelled) {
           setMessages(ordered);
-          lastIdRef.current = ordered.length ? ordered[ordered.length - 1].id : null;
+          lastIdRef.current = ordered.length
+            ? ordered[ordered.length - 1].id
+            : null;
         }
       } catch (e: any) {
         if (!cancelled) setError('Could not load messages.');
@@ -84,19 +89,24 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Pro
       }
     })();
     return () => { cancelled = true; };
-  }, [clubId]);
+  }, [clubId, messagesBase]);
+
 
   // Poll every 2s
   useEffect(() => {
     if (!clubId) return;
     const fetchNew = async () => {
       try {
-        const resp = await fetch(`/api/clubs/${clubId}/messages`);
+        const resp = await fetch(`${messagesBase}/clubs/${clubId}/messages`, {
+          credentials: 'include',
+        });
         const json = await safeJson(resp);
         if (!resp.ok) throw new Error(`Messages poll failed (${resp.status})`);
         const newestFirst: Message[] = json?.data ?? json;
         if (lastIdRef.current == null) return;
-        const newOnes = newestFirst.filter(m => m.id > lastIdRef.current!).reverse();
+        const newOnes = newestFirst
+          .filter(m => m.id > lastIdRef.current!)
+          .reverse();
         if (newOnes.length) {
           setMessages(prev => [...prev, ...newOnes]);
           lastIdRef.current = newOnes[newOnes.length - 1].id;
@@ -105,9 +115,10 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Pro
         console.warn('[ChatBox] poll error:', e);
       }
     };
-    timerRef.current = window.setInterval(fetchNew, 2000);
-    return () => { if (timerRef.current) window.clearInterval(timerRef.current); };
-  }, [clubId]);
+    const id = window.setInterval(fetchNew, 2000);
+    return () => { window.clearInterval(id); };
+  }, [clubId, messagesBase]);
+
 
   // Auto-scroll to bottom when messages append
   useEffect(() => {

@@ -9,8 +9,6 @@ use App\Http\Controllers\MessageController;
 use App\Http\Controllers\ClubController;
 
 // routes/web.php
-Route::get('/test-chat', fn () => Inertia::render('PublicChat'));
-
 // Home page → renders resources/js/Pages/Home.tsx
 Route::get('/', fn () => Inertia::render('Home'))->name('home');
 
@@ -55,6 +53,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/clubs/{club}/invite', [ClubController::class, 'inviteUser'])
         ->name('clubs.invite');
 });
+
+Route::get('/clubs/{club}/messages', [MessageController::class, 'index']); // web guard (session)
+
 
 
 require __DIR__.'/auth.php';
