@@ -51,5 +51,10 @@ Route::middleware('auth')->group(function () {
     })->name('clubs.chat');
 });
 
+Route::middleware('auth')->group(function () {
+    Route::post('/clubs/{club}/invite', [ClubController::class, 'inviteUser'])
+        ->name('clubs.invite');
+});
+
 
 require __DIR__.'/auth.php';

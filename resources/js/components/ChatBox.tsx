@@ -13,10 +13,11 @@ type Message = {
 type Props = {
   bookId: number;
   canPost?: boolean;
+  clubIdOverride?: number;
 };
 
-export default function ChatBox({ bookId, canPost = false }: Props) {
-  const [clubId, setClubId] = useState<number | null>(null);
+export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Props) {
+  const [clubId, setClubId] = useState<number | null>(clubIdOverride ?? null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [body, setBody] = useState('');
   const [loading, setLoading] = useState(true);
@@ -32,6 +33,7 @@ export default function ChatBox({ bookId, canPost = false }: Props) {
 
   // Resolve the public club for this book
   useEffect(() => {
+    if (clubIdOverride) return;
     let cancelled = false;
     (async () => {
       try {
@@ -51,7 +53,13 @@ export default function ChatBox({ bookId, canPost = false }: Props) {
       }
     })();
     return () => { cancelled = true; };
-  }, [bookId]);
+  }, [bookId, clubIdOverride]);
+  
+  // a micro effect so state follows the prop if it ever changes
+  useEffect(() => {
+  if (clubIdOverride) setClubId(clubIdOverride);
+  }, [clubIdOverride]);
+
 
   // Initial load
   useEffect(() => {

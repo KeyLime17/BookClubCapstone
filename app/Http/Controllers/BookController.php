@@ -45,5 +45,25 @@ class BookController extends Controller
             'ratings_count' => $agg?->ratings_count ? (int) $agg->ratings_count : 0,
             'my_rating'     => $mine,
         ]);
+        $myPrivateClubId = null;
+        if ($request->user()) {
+            $uid = $request->user()->getAuthIdentifier();
+            $myPrivateClubId = Club::query()
+                ->where('book_id', $book->id)
+                ->where('is_public', false)
+                ->where(function ($q) use ($uid) {
+                    $q->where('owner_id', $uid)
+                    ->orWhereHas('members', fn($m) => $m->where('user_id', $uid));
+                })
+                ->value('id');
+        }
+
+        return Inertia::render('Book', [
+            'book'              => $bookResource,
+            'avg_rating'        => $avg,
+            'ratings_count'     => $count,
+            'my_rating'         => $mine,
+            'my_private_club_id'=> $myPrivateClubId,   // 👈 add this
+        ]);
     }
 }

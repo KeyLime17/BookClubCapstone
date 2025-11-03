@@ -113,28 +113,65 @@ class ClubController extends Controller
         return response()->noContent();
     }
     public function createPrivateForBook(\Illuminate\Http\Request $request, \App\Models\Book $book)
-{
-    $user = $request->user();
+    {
+        $user = $request->user();
 
-    // Either reuse existing private club for this owner+book or create a new one
-    $club = \App\Models\Club::firstOrCreate(
-        [
-            'book_id'   => $book->id,
-            'owner_id'  => $user->id,
-            'is_public' => false,
-        ],
-        [
-            'name'      => 'Private: '.$book->title,
-        ]
-    );
+        // Either reuse existing private club for this owner+book or create a new one
+        $club = \App\Models\Club::firstOrCreate(
+            [
+                'book_id'   => $book->id,
+                'owner_id'  => $user->id,
+                'is_public' => false,
+            ],
+            [
+                'name'      => 'Private: '.$book->title,
+            ]
+        );
 
-    // Ensure owner is a member with role=owner
-    $club->members()->firstOrCreate(
-        ['user_id' => $user->id],
-        ['role' => 'owner', 'joined_at' => now()]
-    );
+        // Ensure owner is a member with role=owner
+        $club->members()->firstOrCreate(
+            ['user_id' => $user->id],
+            ['role' => 'owner', 'joined_at' => now()]
+        );
 
-    return redirect()->route('clubs.chat', ['club' => $club->id]);
-}
+        return redirect()->route('clubs.chat', ['club' => $club->id]);
+    }
 
+
+    //Invite user controller
+    public function inviteUser(Request $request, Club $club)
+    {
+        $this->authorize('invite', $club);
+
+        $data = $request->validate([
+            'user_id' => ['nullable','exists:users,id'],
+            'name'    => ['nullable','string','max:120'],
+        ]);
+
+        // Resolve a user either by id or by an exact name match
+        $target = null;
+        if (!empty($data['user_id'])) {
+            $target = User::find($data['user_id']);
+        } elseif (!empty($data['name'])) {
+            $target = User::where('name', $data['name'])->first();
+        }
+
+        if (!$target) {
+            return back()->withErrors(['invite' => 'User not found.']);
+        }
+
+        // already a member?
+        $exists = $club->members()->where('user_id', $target->id)->exists();
+        if ($exists) {
+            return back()->with('status', 'User is already a member.');
+        }
+
+        $club->members()->create([
+            'user_id'   => $target->id,
+            'role'      => 'member',
+            'joined_at' => now(),
+        ]);
+
+        return response()->json(['ok' => true]);
+    }
 }

@@ -30,3 +30,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/clubs/{club}/invites', [InvitationController::class, 'create']);
     Route::post('/invites/{token}/accept', [InvitationController::class, 'accept']);
 });
+
+Route::middleware('auth:sanctum')->get('/users/search', function (Request $request) {
+    $q = trim((string)$request->query('q', ''));
+    if ($q === '') return [];
+    return User::query()
+        ->select('id','name')
+        ->where('name', 'like', "%{$q}%")
+        ->orderBy('name')
+        ->limit(10)
+        ->get();
+});

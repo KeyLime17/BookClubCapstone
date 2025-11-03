@@ -22,9 +22,10 @@ type Props = {
   avg_rating: number | null;
   ratings_count: number;
   my_rating: MyRating;
+  my_private_club_id?: number | null;
 };
 
-export default function BookPage({ book, avg_rating, ratings_count, my_rating }: Props) {
+export default function BookPage({ book, avg_rating, ratings_count, my_rating, my_private_club_id }: Props) {
   const year = book.released_at ? new Date(book.released_at).getFullYear() : null;
   const { auth } = usePage<PageProps>().props;
 
@@ -166,24 +167,23 @@ export default function BookPage({ book, avg_rating, ratings_count, my_rating }:
         <ChatBox bookId={book.id} canPost={!!auth?.user} />
 
         {auth?.user && (
-          <form
-            method="post"
-            action={`/books/${book.id}/private-club`}
-            className="pt-2"
+        my_private_club_id ? (
+          <a
+            href={`/clubs/${my_private_club_id}/chat`}
+            className="inline-flex items-center text-sm px-3 py-2 rounded border hover:bg-gray-50"
           >
-            {/* Laravel injects the CSRF token automatically with @csrf in Blade,
-                but since this is Inertia/React, add a hidden input via meta: */}
-            <input type="hidden" name="_token" value={
-              (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || ''
-            } />
-            <button
-              type="submit"
-              className="text-sm px-3 py-2 rounded border hover:bg-gray-50"
-            >
+            Go to your private chat
+          </a>
+        ) : (
+          <form method="post" action={`/books/${book.id}/private-club`}>
+            <input type="hidden" name="_token" value={(document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || ''} />
+            <button type="submit" className="text-sm px-3 py-2 rounded border hover:bg-gray-50">
               Create a private chat for this book
             </button>
           </form>
-        )}
+        )
+      )}
+        
       </section>
     </AppLayout>
   );
