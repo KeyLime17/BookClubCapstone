@@ -139,39 +139,26 @@ class ClubController extends Controller
 
 
     //Invite user controller
-    public function inviteUser(Request $request, Club $club)
+    public function inviteUser(Request $request, \App\Models\Club $club)
     {
-        $this->authorize('invite', $club);
+        $this->authorize('invite', $club); // must be owner or moderator
 
         $data = $request->validate([
-            'user_id' => ['nullable','exists:users,id'],
-            'name'    => ['nullable','string','max:120'],
+            'user_id' => ['required', 'exists:users,id'],
         ]);
 
-        // Resolve a user either by id or by an exact name match
-        $target = null;
-        if (!empty($data['user_id'])) {
-            $target = User::find($data['user_id']);
-        } elseif (!empty($data['name'])) {
-            $target = User::where('name', $data['name'])->first();
-        }
-
-        if (!$target) {
-            return back()->withErrors(['invite' => 'User not found.']);
-        }
-
         // already a member?
-        $exists = $club->members()->where('user_id', $target->id)->exists();
+        $exists = $club->members()->where('user_id', $data['user_id'])->exists();
         if ($exists) {
-            return back()->with('status', 'User is already a member.');
+            return response()->json(['message' => 'User is already a member.'], 200);
         }
 
         $club->members()->create([
-            'user_id'   => $target->id,
+            'user_id'   => $data['user_id'],
             'role'      => 'member',
             'joined_at' => now(),
         ]);
 
-        return response()->json(['ok' => true]);
+        return response()->json(['ok' => true], 200);
     }
 }

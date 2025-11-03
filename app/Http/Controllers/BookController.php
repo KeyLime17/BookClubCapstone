@@ -6,10 +6,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use App\Models\Club;
 
 class BookController extends Controller
 {
-    public function show(\Illuminate\Http\Request $request, int $id)
+    public function show(Request $request, int $id)
     {
         $book = DB::table('books')
             ->join('genres','genres.id','=','books.genre_id')
@@ -23,13 +24,11 @@ class BookController extends Controller
 
         if (!$book) abort(404);
 
-        // Aggregates
         $agg = DB::table('ratings')
             ->where('book_id', $id)
             ->selectRaw('AVG(rating) as avg_rating, COUNT(*) as ratings_count')
             ->first();
 
-        // Current user's rating (if logged in)
         $mine = null;
         if (Auth::check()) {
             $mine = DB::table('ratings')
@@ -39,31 +38,25 @@ class BookController extends Controller
                 ->first();
         }
 
-        return Inertia::render('Book', [
-            'book' => $book,
-            'avg_rating'    => $agg?->avg_rating ? (float) $agg->avg_rating : null,
-            'ratings_count' => $agg?->ratings_count ? (int) $agg->ratings_count : 0,
-            'my_rating'     => $mine,
-        ]);
         $myPrivateClubId = null;
         if ($request->user()) {
             $uid = $request->user()->getAuthIdentifier();
             $myPrivateClubId = Club::query()
-                ->where('book_id', $book->id)
+                ->where('book_id', $book->id)     // $book is stdClass from DB, fine
                 ->where('is_public', false)
                 ->where(function ($q) use ($uid) {
                     $q->where('owner_id', $uid)
-                    ->orWhereHas('members', fn($m) => $m->where('user_id', $uid));
+                      ->orWhereHas('members', fn($m) => $m->where('user_id', $uid));
                 })
                 ->value('id');
         }
 
         return Inertia::render('Book', [
-            'book'              => $bookResource,
-            'avg_rating'        => $avg,
-            'ratings_count'     => $count,
+            'book'              => $book,
+            'avg_rating'        => $agg?->avg_rating ? (float) $agg->avg_rating : null,
+            'ratings_count'     => $agg?->ratings_count ? (int) $agg->ratings_count : 0,
             'my_rating'         => $mine,
-            'my_private_club_id'=> $myPrivateClubId,   // 👈 add this
+            'my_private_club_id'=> $myPrivateClubId,
         ]);
     }
 }

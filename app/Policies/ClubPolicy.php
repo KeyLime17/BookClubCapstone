@@ -52,14 +52,18 @@ class ClubPolicy
             || $club->members()->where('user_id',$user->id)->where('role','moderator')->exists();
     }
 
-    public function invite(?AuthUser $user, Club $club): bool
+    public function invite(?AuthUser $user, \App\Models\Club $club): bool
     {
         if (!$user) return false;
         $uid = method_exists($user, 'getAuthIdentifier') ? $user->getAuthIdentifier() : null;
         if (!$uid) return false;
 
         if ((int)$club->owner_id === (int)$uid) return true;
-        return $club->members()->where('user_id', $uid)->where('role','moderator')->exists();
+
+        return $club->members()
+            ->where('user_id', $uid)
+            ->where('role', 'moderator')
+            ->exists();
     }
 }
 
