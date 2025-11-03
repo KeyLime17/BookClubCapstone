@@ -74,3 +74,4 @@ class InvitationController extends Controller
         return response()->noContent();
     }
 }
+?>

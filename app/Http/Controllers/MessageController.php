@@ -56,17 +56,25 @@ class MessageController extends Controller
      */
     public function store(Request $request, Club $club)
     {
-        // public-only for now; private flow would require membership/invite
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        // Public: any logged-in can post. Private: only owner or members.
         if (!$club->is_public) {
-            return response()->json(['message' => 'Private club messages require an invite.'], 403);
+            $uid = $user->getAuthIdentifier();
+            $isAllowed = ((int)$club->owner_id === (int)$uid)
+                || $club->members()->where('user_id', $uid)->exists();
+
+            if (!$isAllowed) {
+                return response()->json(['message' => 'Forbidden'], 403);
+            }
         }
 
         $data = $request->validate([
             'body' => ['required', 'string', 'max:2000'],
         ]);
-
-        /** @var \App\Models\User $user */
-        $user = $request->user();
 
         $message = $club->messages()->create([
             'user_id' => $user->id,
@@ -74,10 +82,7 @@ class MessageController extends Controller
             'body'    => $data['body'],
         ]);
 
-        // Return the shape the frontend expects (include user name)
-        return response()->json(
-            $message->load(['user:id,name']),
-            201
-        );
+        return response()->json($message->load(['user:id,name']), 201);
     }
 }
+?>

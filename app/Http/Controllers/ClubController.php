@@ -137,28 +137,29 @@ class ClubController extends Controller
         return redirect()->route('clubs.chat', ['club' => $club->id]);
     }
 
-
-    //Invite user controller
     public function inviteUser(Request $request, \App\Models\Club $club)
     {
-        $this->authorize('invite', $club); // must be owner or moderator
+        $user = $request->user();
+
+        // Only owner or moderators can invite (same rule as manage())
+        $canManage = ((int)$club->owner_id === (int)$user->id)
+            || $club->members()->where('user_id',$user->id)->where('role','moderator')->exists();
+
+        if (!$canManage) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
 
         $data = $request->validate([
             'user_id' => ['required', 'exists:users,id'],
         ]);
 
-        // already a member?
-        $exists = $club->members()->where('user_id', $data['user_id'])->exists();
-        if ($exists) {
-            return response()->json(['message' => 'User is already a member.'], 200);
-        }
+        // Attach as member if not already in
+        $club->members()->firstOrCreate(
+            ['user_id' => $data['user_id']],
+            ['role' => 'member', 'joined_at' => now()]
+        );
 
-        $club->members()->create([
-            'user_id'   => $data['user_id'],
-            'role'      => 'member',
-            'joined_at' => now(),
-        ]);
-
-        return response()->json(['ok' => true], 200);
+        return response()->json(['ok' => true], 201);
     }
+
 }

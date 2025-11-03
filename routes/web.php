@@ -54,6 +54,11 @@ Route::middleware('auth')->group(function () {
         ->name('clubs.invite');
 });
 
+Route::middleware('auth')->group(function () {
+    Route::get('/users/search', [\App\Http\Controllers\UserController::class, 'search'])
+        ->name('users.search');
+});
+
 Route::get('/clubs/{club}/messages', [MessageController::class, 'index']); // web guard (session)
 
 
