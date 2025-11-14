@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Club;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
 
 class ClubController extends Controller
 {
@@ -35,6 +37,40 @@ class ClubController extends Controller
         }
 
         return $q->orderByDesc('members_count')->paginate(20);
+    }
+
+    public function myClubs(Request $request)
+    {
+        $uid = $request->user()->getAuthIdentifier();
+
+        $clubs = Club::query()
+            ->where(function ($q) use ($uid) {
+                $q->where('owner_id', $uid)
+                  ->orWhereHas('members', fn($m) => $m->where('user_id', $uid));
+            })
+            ->withCount('members')
+            ->with(['owner:id,name'])
+            ->orderByDesc('is_public')   // show private first
+            ->orderBy('name')
+            ->get(['id','name','book_id','is_public','owner_id']);
+
+        return Inertia::render('PrivateClubs', [
+            'clubs' => $clubs,
+        ]);
+    }
+
+    public function leaveWeb(Request $request, Club $club)
+    {
+        $uid = $request->user()->getAuthIdentifier();
+
+        // owner cannot leave without reassigning (simplest rule)
+        if ((int)$club->owner_id === (int)$uid) {
+            return back()->with('error', 'Owners cannot leave their own club.');
+        }
+
+        $club->members()->where('user_id', $uid)->delete();
+
+        return back()->with('success', 'You left the club.');
     }
 
     /**

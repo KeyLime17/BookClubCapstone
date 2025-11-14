@@ -19,8 +19,11 @@ Route::get('/catalog', [CatalogController::class, 'index'])->name('catalog');
 // Placeholder for Private Clubs page (gated)
 // Renders Home for now with a note; replace with real page later.
 Route::middleware('auth')->group(function () {
-    Route::get('/clubs/private', fn () => Inertia::render('Home', ['note' => 'Private clubs (auth only)']))
-        ->name('clubs.private');
+    Route::get('/clubs/private', [ClubController::class, 'myClubs'])->name('clubs.private');
+
+    // leave a club
+    Route::delete('/clubs/{club}/leave', [ClubController::class, 'leaveWeb'])
+        ->name('clubs.leave');
 
     Route::post('/books/{id}/rate',   [BookRatingController::class, 'upsert'])->name('books.rate');
     Route::delete('/books/{id}/rate', [BookRatingController::class, 'destroy'])->name('books.rate.destroy');
