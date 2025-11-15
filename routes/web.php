@@ -7,6 +7,16 @@ use App\Http\Controllers\BookController;
 use App\Http\Controllers\BookRatingController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\ClubController;
+use App\Http\Controllers\BookSubmissionController;
+
+// routes Handling submission of new books
+Route::middleware('auth')->group(function () {
+    Route::get('/books/submit', [BookSubmissionController::class, 'create'])
+        ->name('books.submit');
+
+    Route::post('/books/submit', [BookSubmissionController::class, 'store'])
+        ->name('books.submit.store');
+});
 
 // routes/web.php
 // Home page → renders resources/js/Pages/Home.tsx

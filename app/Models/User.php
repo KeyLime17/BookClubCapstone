@@ -43,6 +43,20 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_admin' => 'boolean',
+            'is_submitter' => 'boolean',
         ];
     }
+
+
+    public function bookSubmissions()
+    {
+        return $this->hasMany(\App\Models\BookSubmission::class);
+    }
+
+    public function reviewedSubmissions()
+    {
+        return $this->hasMany(\App\Models\BookSubmission::class, 'reviewer_id');
+    }
+
 }
