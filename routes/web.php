@@ -20,14 +20,21 @@ Route::middleware('auth')->group(function () {
 
 // Admin-only review routes
 Route::middleware(['auth', 'admin'])->group(function () {
-    // List of all pending submissions
     Route::get('/review', [BookSubmissionController::class, 'index'])
         ->name('review.index');
 
-    // Detail page for a single submission (we'll use this next step)
+    // detail view for a single submission
     Route::get('/review/{submission}', [BookSubmissionController::class, 'show'])
         ->name('review.show');
+
+    // approve / reject actions
+    Route::post('/review/{submission}/approve', [BookSubmissionController::class, 'approve'])
+        ->name('review.approve');
+
+    Route::post('/review/{submission}/reject', [BookSubmissionController::class, 'reject'])
+        ->name('review.reject');
 });
+
 
 // routes/web.php
 // Home page → renders resources/js/Pages/Home.tsx
