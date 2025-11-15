@@ -8,9 +8,11 @@ use App\Http\Controllers\BookRatingController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\ClubController;
 use App\Http\Controllers\BookSubmissionController;
+use App\Http\Controllers\ModerationController;
+
 
 // routes Handling submission of new books
-Route::middleware('auth')->group(function () {
+Route::middleware('auth', 'not-banned')->group(function () {
     Route::get('/books/submit', [BookSubmissionController::class, 'create'])
         ->name('books.submit');
 
@@ -18,21 +20,46 @@ Route::middleware('auth')->group(function () {
         ->name('books.submit.store');
 });
 
+// if user is banned
+Route::get('/banned', fn () => Inertia::render('Banned'))
+    ->name('banned');
+
+
 // Admin-only review routes
-Route::middleware(['auth', 'admin'])->group(function () {
+Route::middleware(['auth', 'admin', 'not-banned'])->group(function () {
     Route::get('/review', [BookSubmissionController::class, 'index'])
         ->name('review.index');
 
-    // detail view for a single submission
     Route::get('/review/{submission}', [BookSubmissionController::class, 'show'])
         ->name('review.show');
 
-    // approve / reject actions
     Route::post('/review/{submission}/approve', [BookSubmissionController::class, 'approve'])
         ->name('review.approve');
 
     Route::post('/review/{submission}/reject', [BookSubmissionController::class, 'reject'])
         ->name('review.reject');
+
+    // New moderation dashboard
+    Route::get('/moderation', [ModerationController::class, 'index'])
+        ->name('moderation.index');
+    // Admin moderation actions
+    Route::post('/moderation/users/{user}/promote', [ModerationController::class, 'promote'])
+        ->name('moderation.promote');
+
+    Route::post('/moderation/users/{user}/demote', [ModerationController::class, 'demote'])
+        ->name('moderation.demote');
+
+    Route::post('/moderation/users/{user}/ban', [ModerationController::class, 'ban'])
+        ->name('moderation.ban');
+
+    Route::post('/moderation/users/{user}/unban', [ModerationController::class, 'unban'])
+        ->name('moderation.unban');
+
+    Route::post('/moderation/users/{user}/mute', [ModerationController::class, 'mute'])
+        ->name('moderation.mute');
+
+    Route::post('/moderation/users/{user}/clear-mute', [ModerationController::class, 'clearMute'])
+        ->name('moderation.clear-mute');
 });
 
 

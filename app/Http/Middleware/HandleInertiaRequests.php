@@ -49,6 +49,8 @@ class HandleInertiaRequests extends Middleware
                         'email'        => $u->email ?? null,
                         'is_admin'     => $u->is_admin ?? false,
                         'is_submitter' => $u->is_submitter ?? false,
+                        'is_banned'    => $u->is_banned ?? false,
+                        'muted_until'  => $u->muted_until ?? null,
                     ];
                 },
             ],

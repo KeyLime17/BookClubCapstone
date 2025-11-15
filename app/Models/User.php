@@ -45,6 +45,8 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_admin' => 'boolean',
             'is_submitter' => 'boolean',
+            'is_banned'         => 'boolean',
+            'muted_until'       => 'datetime',
         ];
     }
 

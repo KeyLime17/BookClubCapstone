@@ -8,19 +8,26 @@ class UserController extends Controller
 {
     public function search(Request $request)
     {
-        $q = trim((string) $request->query('q', ''));
-        if ($q === '') {
-            return response()->json([]);
-        }
+        $q = $request->input('q', '');
 
         $users = User::query()
-            ->select('id', 'name')
-            ->where('name', 'like', "%{$q}%")
+            ->when($q, function ($query, $q) {
+                $query->where('name', 'like', "%{$q}%")
+                    ->orWhere('email', 'like', "%{$q}%");
+            })
             ->orderBy('name')
-            ->limit(8)
-            ->get();
+            ->limit(20)
+            ->get([
+                'id',
+                'name',
+                'email',
+                'is_submitter',
+                'is_banned',
+                'muted_until',
+            ]);
 
         return response()->json($users);
     }
+
 }
 ?>

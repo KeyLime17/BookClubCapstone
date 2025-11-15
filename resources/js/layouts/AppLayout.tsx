@@ -17,11 +17,15 @@ export default function AppLayout({ children }: PropsWithChildren) {
             <Link href="/catalog" className="hover:underline">Catalog</Link>
             <Link href="/clubs/private" className="hover:underline">Private Clubs</Link>
 
-            {/* Admin-only Review link */}
             {user?.is_admin && (
-              <Link href="/review" className="hover:underline">
-                Review
-              </Link>
+              <>
+                <Link href="/review" className="hover:underline">
+                  Review
+                </Link>
+                <Link href="/moderation" className="hover:underline">
+                  Moderation
+                </Link>
+              </>
             )}
           </div>
 
