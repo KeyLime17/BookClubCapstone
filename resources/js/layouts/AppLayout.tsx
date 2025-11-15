@@ -1,9 +1,11 @@
 import { PropsWithChildren } from "react";
 import { Link, usePage } from "@inertiajs/react";
-import type { PageProps } from "@/types";
 
 export default function AppLayout({ children }: PropsWithChildren) {
-  const { auth } = usePage<PageProps>().props;
+  const page = usePage<any>();
+  const user = page.props.auth?.user as
+    | { name: string; email?: string; is_admin?: boolean }
+    | undefined;
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
@@ -14,19 +16,25 @@ export default function AppLayout({ children }: PropsWithChildren) {
             <Link href="/" className="hover:underline">Home</Link>
             <Link href="/catalog" className="hover:underline">Catalog</Link>
             <Link href="/clubs/private" className="hover:underline">Private Clubs</Link>
+
+            {/* Admin-only Review link */}
+            {user?.is_admin && (
+              <Link href="/review" className="hover:underline">
+                Review
+              </Link>
+            )}
           </div>
 
           <div className="flex items-center gap-4">
-            {auth?.user ? (
+            {user ? (
               <>
-                <span className="text-sm">Hi, {auth.user.name}</span>
+                <span className="text-sm">Hi, {user.name}</span>
                 <Link
                   href="/profile"
                   className="rounded px-3 py-1 text-sm ring-1 ring-gray-300 hover:bg-gray-100"
                 >
                   Profile
                 </Link>
-                {/* NEW: logout as POST */}
                 <Link
                   href="/logout"
                   method="post"

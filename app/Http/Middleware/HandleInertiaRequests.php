@@ -44,9 +44,11 @@ class HandleInertiaRequests extends Middleware
 
                     // Map the fields explicitly (avoid ->only() which is Eloquent-specific)
                     return [
-                        'id'    => $u->id ?? null,
-                        'name'  => $u->name ?? null,
-                        'email' => $u->email ?? null,
+                        'id'           => $u->id ?? null,
+                        'name'         => $u->name ?? null,
+                        'email'        => $u->email ?? null,
+                        'is_admin'     => $u->is_admin ?? false,
+                        'is_submitter' => $u->is_submitter ?? false,
                     ];
                 },
             ],

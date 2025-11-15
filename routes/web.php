@@ -18,6 +18,17 @@ Route::middleware('auth')->group(function () {
         ->name('books.submit.store');
 });
 
+// Admin-only review routes
+Route::middleware(['auth', 'admin'])->group(function () {
+    // List of all pending submissions
+    Route::get('/review', [BookSubmissionController::class, 'index'])
+        ->name('review.index');
+
+    // Detail page for a single submission (we'll use this next step)
+    Route::get('/review/{submission}', [BookSubmissionController::class, 'show'])
+        ->name('review.show');
+});
+
 // routes/web.php
 // Home page → renders resources/js/Pages/Home.tsx
 Route::get('/', fn () => Inertia::render('Home'))->name('home');

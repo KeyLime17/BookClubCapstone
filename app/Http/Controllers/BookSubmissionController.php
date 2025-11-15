@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class BookSubmissionController extends Controller
 {
@@ -45,4 +46,31 @@ class BookSubmissionController extends Controller
             ->back()
             ->with('success', 'Book submitted for review.');
     }
+
+    public function index(): Response
+    {
+        // Pending only, submitters first, then by oldest
+        $submissions = BookSubmission::with('user')
+            ->where('status', 'pending')
+            ->join('users', 'users.id', '=', 'book_submissions.user_id')
+            ->orderByDesc('users.is_submitter')
+            ->orderBy('book_submissions.created_at')
+            ->select('book_submissions.*')
+            ->get();
+
+        return Inertia::render('ReviewSubmissions', [
+            'submissions' => $submissions,
+        ]);
+    }
+
+    public function show(BookSubmission $submission): Response
+    {
+        // We'll build the detail page UI in the next step
+        $submission->load('user');
+
+        return Inertia::render('ReviewSubmissionDetail', [
+            'submission' => $submission,
+        ]);
+    }
+
 }
