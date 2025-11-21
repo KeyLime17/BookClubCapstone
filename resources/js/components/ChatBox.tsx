@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { usePage, Link } from '@inertiajs/react';
 
 type User = { id: number; name: string };
 type Message = {
@@ -17,19 +18,35 @@ type Props = {
 };
 
 export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Props) {
+  const page = usePage<any>();
+  const authUser = page.props.auth?.user as
+    | { id: number; name: string; muted_until?: string | null }
+    | undefined;
+
+  const mutedUntilStr = authUser?.muted_until ?? null;
+  const mutedUntil = mutedUntilStr ? new Date(mutedUntilStr) : null;
+  const now = new Date();
+  const isMuted = !!mutedUntil && mutedUntil > now;
+
+  // final “can actually send messages” flag
+  const effectiveCanPost = !!authUser && canPost && !isMuted;
+
   const [clubId, setClubId] = useState<number | null>(clubIdOverride ?? null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [body, setBody] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const lastIdRef = useRef<number | null>(null);
-  const timerRef = useRef<number | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
   const messagesBase = clubIdOverride ? '' : '/api';
 
   const safeJson = async (resp: Response) => {
     const text = await resp.text();
-    try { return JSON.parse(text); } catch { return { __raw: text, __status: resp.status }; }
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { __raw: text, __status: resp.status };
+    }
   };
 
   // Resolve the public club for this book
@@ -38,7 +55,10 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Pro
     let cancelled = false;
     (async () => {
       try {
-        const resp = await fetch(`/api/clubs?only_public=1&book_id=${bookId}`, { credentials: 'include' });
+        const resp = await fetch(
+          `/api/clubs?only_public=1&book_id=${bookId}`,
+          { credentials: 'include' }
+        );
         const json = await safeJson(resp);
         if (!resp.ok) throw new Error(`Clubs query failed (${resp.status})`);
 
@@ -53,14 +73,15 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Pro
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [bookId, clubIdOverride]);
 
-  // a micro effect so state follows the prop if it ever changes
+  // keep state in sync if clubIdOverride changes
   useEffect(() => {
-  if (clubIdOverride) setClubId(clubIdOverride);
+    if (clubIdOverride) setClubId(clubIdOverride);
   }, [clubIdOverride]);
-
 
   // Initial load
   useEffect(() => {
@@ -88,9 +109,10 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Pro
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [clubId, messagesBase]);
-
 
   // Poll every 2s
   useEffect(() => {
@@ -105,10 +127,10 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Pro
         const newestFirst: Message[] = json?.data ?? json;
         if (lastIdRef.current == null) return;
         const newOnes = newestFirst
-          .filter(m => m.id > lastIdRef.current!)
+          .filter((m) => m.id > lastIdRef.current!)
           .reverse();
         if (newOnes.length) {
-          setMessages(prev => [...prev, ...newOnes]);
+          setMessages((prev) => [...prev, ...newOnes]);
           lastIdRef.current = newOnes[newOnes.length - 1].id;
         }
       } catch (e) {
@@ -116,9 +138,10 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Pro
       }
     };
     const id = window.setInterval(fetchNew, 2000);
-    return () => { window.clearInterval(id); };
+    return () => {
+      window.clearInterval(id);
+    };
   }, [clubId, messagesBase]);
-
 
   // Auto-scroll to bottom when messages append
   useEffect(() => {
@@ -129,27 +152,40 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Pro
   // Send via web route (session + CSRF)
   const send = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!clubId || !body.trim()) return;
+    if (!clubId || !body.trim() || !effectiveCanPost) return;
 
-    const token = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '';
+    const token =
+      (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)
+        ?.content || '';
 
     try {
       const resp = await fetch(`/clubs/${clubId}/messages`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': token,
+        },
         credentials: 'include',
         body: JSON.stringify({ body }),
       });
 
       const text = await resp.text();
-      const json = (() => { try { return JSON.parse(text); } catch { return null; } })();
+      const json = (() => {
+        try {
+          return JSON.parse(text);
+        } catch {
+          return null;
+        }
+      })();
 
       if (resp.status === 201 && json) {
         setBody('');
-        setMessages(prev => [...prev, json]);
+        setMessages((prev) => [...prev, json]);
         lastIdRef.current = json.id ?? lastIdRef.current;
       } else if (resp.status === 401) {
         alert('Log in to send messages.');
+      } else if (resp.status === 403 && isMuted) {
+        alert('You are muted and cannot send messages right now.');
       } else {
         console.error('[ChatBox] send failed:', resp.status, text);
         alert('Could not send message.');
@@ -176,9 +212,11 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Pro
         {loading && <div>Loading messages…</div>}
         {error && <div className="text-red-600 text-sm">{error}</div>}
         {!loading && !clubId && !error && (
-          <div className="opacity-70">No public discussion for this book yet.</div>
+          <div className="opacity-70">
+            No public discussion for this book yet.
+          </div>
         )}
-        {messages.map(m => (
+        {messages.map((m) => (
           <div key={m.id} className="text-sm">
             <span className="font-medium">{m.user?.name ?? 'System'}:</span>{' '}
             <span>{m.body}</span>
@@ -189,33 +227,47 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Pro
         ))}
       </div>
 
-      {canPost ? (
+      {/* Bottom area: depends on login + mute state */}
+      {!authUser ? (
+        <div className="text-sm opacity-70">
+          <Link href="/login" className="underline">
+            Log in
+          </Link>{' '}
+          to participate in the discussion.
+        </div>
+      ) : isMuted ? (
+        <div className="text-sm text-red-600">
+          You are muted
+          {mutedUntil
+            ? ` until ${mutedUntil.toLocaleString()}.`
+            : '.'}
+        </div>
+      ) : (
         <form onSubmit={send} className="flex gap-2">
           <input
-            className="flex-1 border rounded-lg px-3 py-2"
+            className="flex-1 border rounded-lg px-3 py-2 disabled:bg-gray-100 disabled:text-gray-500"
             placeholder="Write a message…"
             value={body}
             onChange={(e) => setBody(e.target.value)}
+            disabled={!effectiveCanPost || !clubId}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                if (body.trim() && clubId) void send(e as any);
+                if (body.trim() && clubId && effectiveCanPost) {
+                  void send(e as any);
+                }
               }
             }}
           />
           <button
-            className="px-4 py-2 rounded-lg border"
+            className="px-4 py-2 rounded-lg border disabled:opacity-50"
             type="submit"
-            disabled={!body.trim() || !clubId}
+            disabled={!body.trim() || !clubId || !effectiveCanPost}
             title={!clubId ? 'Loading discussion…' : undefined}
           >
             Send
           </button>
         </form>
-      ) : (
-        <div className="text-sm opacity-70">
-          Log in to participate in the discussion.
-        </div>
       )}
     </div>
   );

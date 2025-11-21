@@ -56,7 +56,16 @@ class MessageController extends Controller
      */
     public function store(Request $request, Club $club)
     {
+
+        
         $user = $request->user();
+        
+        if ($user && $user->muted_until && Carbon::now()->lessThan($user->muted_until)) {
+        // User is still muted → do not save the message
+        return back()->withErrors([
+            'message' => 'You are muted until ' . $user->muted_until->toDateTimeString() . '.',
+        ]);
+    }
         if (!$user) {
             return response()->json(['message' => 'Unauthorized'], 401);
         }

@@ -1,11 +1,11 @@
-import React, { FormEvent } from 'react';
-import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import React from 'react';
+import { Head, router } from '@inertiajs/react';
 import AppLayout from '@/layouts/AppLayout';
 
 interface SubmissionUser {
   id: number;
   name: string;
-  is_submitter?: boolean;
+  email?: string;
 }
 
 interface Submission {
@@ -15,159 +15,189 @@ interface Submission {
   link?: string | null;
   image_path?: string | null;
   created_at: string;
-  description?: string | null;
-  release_date?: string | null;
   user: SubmissionUser;
 }
 
-export default function ReviewSubmissionDetail() {
-  const page = usePage<any>();
-  const submission = page.props.submission as Submission;
+interface Genre {
+  id: number;
+  name: string;
+  slug: string;
+}
 
-  const { data, setData, post, processing, errors } = useForm<{
-    description: string;
-    release_date: string;
-    image: File | null;
-  }>({
-    description: submission.description ?? '',
-    release_date: submission.release_date ?? '',
-    image: null,
-  });
+interface PageProps {
+  submission: Submission;
+  genres: Genre[];
+}
 
-  const handleApprove = (e: FormEvent) => {
+export default function ReviewSubmissionDetail(props: PageProps) {
+  const { submission, genres } = props;
+
+  const [description, setDescription] = React.useState<string>('');
+  const [releasedAt, setReleasedAt] = React.useState<string>('');
+  const [genreId, setGenreId] = React.useState<number | ''>(
+    genres[0]?.id ?? ''
+  );
+  const [busy, setBusy] = React.useState(false);
+
+  const approve = (e: React.FormEvent) => {
     e.preventDefault();
-    post(`/review/${submission.id}/approve`, {
-      forceFormData: true, // needed because we may send a file
-    });
+    if (!genreId) {
+      alert('Please select a genre before approving.');
+      return;
+    }
+
+    setBusy(true);
+    router.post(
+      `/review/${submission.id}/approve`,
+      {
+        description,
+        released_at: releasedAt || null,
+        genre_id: genreId,
+      },
+      {
+        onFinish: () => setBusy(false),
+      }
+    );
   };
 
-  const handleReject = (e: FormEvent) => {
+  const reject = (e: React.FormEvent) => {
     e.preventDefault();
-    post(`/review/${submission.id}/reject`);
+    if (!confirm('Reject this submission?')) return;
+
+    setBusy(true);
+    router.post(
+      `/review/${submission.id}/reject`,
+      {},
+      { onFinish: () => setBusy(false) }
+    );
   };
+
+  const imageUrl = submission.image_path
+    ? `/storage/${submission.image_path}`
+    : null;
 
   return (
     <AppLayout>
       <Head title={`Review: ${submission.title}`} />
 
-      <div className="max-w-3xl mx-auto py-8 px-4 space-y-6">
-        <Link href="/review" className="text-sm text-blue-600 hover:underline">
-          ← Back to submissions
-        </Link>
+      <div className="max-w-4xl mx-auto py-8 px-4 space-y-6">
+        <h1 className="text-2xl font-semibold">
+          Review Submission: {submission.title}
+        </h1>
 
-        <div className="flex gap-6">
-          {/* Current image preview (if any) */}
-          {submission.image_path && (
-            <div className="w-40 flex-shrink-0">
-              <img
-                src={`/storage/${submission.image_path}`}
-                alt={submission.title}
-                className="w-full rounded shadow-sm object-cover"
-              />
-            </div>
-          )}
-
-          <div className="flex-1 space-y-2">
-            <h1 className="text-2xl font-semibold">{submission.title}</h1>
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-3">
+            <p className="text-sm text-gray-700">
+              <span className="font-medium">Title:</span> {submission.title}
+            </p>
             <p className="text-sm text-gray-700">
               <span className="font-medium">Author:</span> {submission.author}
             </p>
             <p className="text-sm text-gray-700">
-              <span className="font-medium">Submitted by:</span> {submission.user.name}{' '}
-              {submission.user.is_submitter && (
-                <span className="ml-2 text-xs px-2 py-0.5 rounded bg-yellow-100 text-yellow-800">
-                  Submitter
-                </span>
-              )}
-            </p>
-            <p className="text-xs text-gray-500">
-              Submitted at: {new Date(submission.created_at).toLocaleString()}
+              <span className="font-medium">Submitted by:</span>{' '}
+              {submission.user.name}
             </p>
             {submission.link && (
-              <p className="text-sm">
-                <span className="font-medium">Reference link:</span>{' '}
+              <p className="text-sm text-gray-700">
+                <span className="font-medium">Link:</span>{' '}
                 <a
                   href={submission.link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 underline break-all"
+                  className="text-blue-600 underline"
                 >
-                  {submission.link}
+                  Open store / info page
                 </a>
               </p>
             )}
+            <p className="text-xs text-gray-500">
+              Submitted at {new Date(submission.created_at).toLocaleString()}
+            </p>
+          </div>
+
+          <div className="flex justify-center">
+            <div className="aspect-[3/4] w-full max-w-[260px] overflow-hidden rounded border bg-gray-100">
+              {imageUrl ? (
+                <img
+                  src={imageUrl}
+                  alt={`${submission.title} cover`}
+                  className="h-full w-full object-contain"
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center text-xs text-gray-500">
+                  No cover uploaded
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        <form className="space-y-4">
+        <form onSubmit={approve} className="space-y-4 rounded border bg-white p-4">
           <div>
-            <label className="block text-sm font-medium mb-1" htmlFor="description">
-              Description (for catalog)
+            <label className="block text-sm font-medium mb-1">
+              Genre
             </label>
-            <textarea
-              id="description"
-              className="w-full border rounded px-3 py-2 text-sm min-h-[120px]"
-              value={data.description}
-              onChange={(e) => setData('description', e.target.value)}
-            />
-            {errors.description && (
-              <p className="text-xs text-red-600 mt-1">{errors.description}</p>
-            )}
+            <select
+              className="w-full border rounded px-3 py-2 text-sm"
+              value={genreId}
+              onChange={(e) =>
+                setGenreId(e.target.value ? Number(e.target.value) : '')
+              }
+            >
+              {genres.length === 0 && (
+                <option value="">No genres defined</option>
+              )}
+              {genres.length > 0 && (
+                <>
+                  {/* optional "choose" prompt */}
+                  {/* <option value="">Select a genre…</option> */}
+                  {genres.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </>
+              )}
+            </select>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1" htmlFor="release_date">
+            <label className="block text-sm font-medium mb-1">
+              Description
+            </label>
+            <textarea
+              className="w-full border rounded px-3 py-2 text-sm min-h-[120px]"
+              placeholder="Add a catalog description for this book…"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">
               Release date
             </label>
             <input
-              id="release_date"
               type="date"
               className="w-full border rounded px-3 py-2 text-sm"
-              value={data.release_date}
-              onChange={(e) => setData('release_date', e.target.value)}
+              value={releasedAt}
+              onChange={(e) => setReleasedAt(e.target.value)}
             />
-            {errors.release_date && (
-              <p className="text-xs text-red-600 mt-1">{errors.release_date}</p>
-            )}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1" htmlFor="image">
-              Cover image for catalog
-              <span className="block text-xs text-gray-500">
-                You can replace the submitted image or add one if none was provided.
-              </span>
-            </label>
-            <input
-              id="image"
-              type="file"
-              accept="image/*"
-              className="w-full text-sm"
-              onChange={(e) => {
-                const file = e.target.files?.[0] ?? null;
-                setData('image', file);
-              }}
-            />
-            {errors.image && (
-              <p className="text-xs text-red-600 mt-1">{errors.image}</p>
-            )}
-          </div>
-
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-2">
             <button
               type="submit"
-              onClick={handleApprove}
-              disabled={processing}
-              className="inline-flex items-center px-4 py-2 rounded bg-green-600 text-white text-sm font-medium disabled:opacity-60"
+              disabled={busy}
+              className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
             >
               Approve &amp; Add to Catalog
             </button>
-
             <button
               type="button"
-              onClick={handleReject}
-              disabled={processing}
-              className="inline-flex items-center px-4 py-2 rounded bg-red-600 text-white text-sm font-medium disabled:opacity-60"
+              disabled={busy}
+              onClick={reject}
+              className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
             >
               Reject
             </button>

@@ -3,13 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\BookSubmission;
+use App\Models\Book;
+use App\Models\Club;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
-use App\Models\Book;
-use Illuminate\Support\Facades\DB;
 
 class BookSubmissionController extends Controller
 {
@@ -69,52 +70,67 @@ class BookSubmissionController extends Controller
     {
         $submission->load('user');
 
+        $genres = DB::table('genres')
+            ->orderBy('name')
+            ->get(['id', 'name', 'slug']);
+
         return Inertia::render('ReviewSubmissionDetail', [
             'submission' => $submission,
+            'genres'     => $genres,
         ]);
     }
+
 
     public function approve(Request $request, BookSubmission $submission)
     {
         $data = $request->validate([
-            'description'  => 'required|string',
-            'release_date' => 'required|date',
-            'image'        => 'nullable|image|max:2048',
+            'description' => 'nullable|string',
+            'released_at' => 'nullable|date',
+            'genre_id'    => 'required|exists:genres,id',
         ]);
 
-        DB::transaction(function () use ($submission, $data, $request) {
-            $imagePath = $submission->image_path;
-
-            // If admin uploaded a new image, store it and override
-            if ($request->hasFile('image')) {
-                $imagePath = $request->file('image')
-                    ->store('book_covers', 'public');
-            }
-
-            $submission->update([
-                'description'  => $data['description'],
-                'release_date' => $data['release_date'],
-                'image_path'   => $imagePath,
-                'status'       => 'approved',
-                'reviewer_id'  => Auth::id(),
-                'reviewed_at'  => now(),
-            ]);
-
-            $defaultGenreId = 5; // Nonfiction fallback
-
-            Book::create([
+        DB::transaction(function () use ($submission, $data) {
+            // 1. Create the Book record
+            $book = Book::create([
                 'title'       => $submission->title,
                 'author'      => $submission->author,
-                'cover_url'   => $imagePath ? '/storage/' . $imagePath : null,
-                'description' => $data['description'],
-                'released_at' => $data['release_date'],
-                'genre_id'    => $defaultGenreId,
+                'genre_id'    => $data['genre_id'],
+                'description' => $data['description'] ?? null,
+                'released_at' => $data['released_at'] ?? null,
+                // store a URL/path consistent with how catalog expects it
+                'cover_url'   => $submission->image_path
+                    ? '/storage/' . $submission->image_path
+                    : null,
             ]);
+
+            // 2. Mark submission as approved (and link reviewer)
+            $submission->status      = 'approved';
+            $submission->reviewer_id = Auth::id();
+            $submission->reviewed_at = now();
+            // If you have a book_id column on submissions, you can link it:
+            // $submission->book_id = $book->id;
+            $submission->save();
+
+            // 3. Ensure there is a *public* global discussion club for this book
+            $exists = Club::where('book_id', $book->id)
+                ->where('is_public', true)
+                ->exists();
+
+            if (!$exists) {
+                Club::create([
+                    'name'      => $book->title . ' — Global Discussion',
+                    'book_id'   => $book->id,
+                    'is_public' => true,
+                    'owner_id'  => Auth::id(), // or null if owner is optional
+                ]);
+            }
         });
 
-        return redirect()->route('review.index')
-            ->with('success', 'Book approved and added to catalog.');
+        return redirect()
+            ->route('review.index')
+            ->with('success', 'Submission approved, book added to catalog, and global discussion created.');
     }
+
 
 
     public function reject(Request $request, BookSubmission $submission)

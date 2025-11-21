@@ -1,4 +1,5 @@
 import React from 'react';
+import { usePage } from '@inertiajs/react';
 import AppLayout from '@/layouts/AppLayout';
 import ChatBox from '@/components/ChatBox';
 
@@ -18,7 +19,6 @@ function InvitePanel({ clubId }: { clubId: number }) {
     if (!val.trim()) { setList([]); return; }
     setSearching(true);
     try {
-      // NOTE: web route (with auth cookie), not /api/...
       const resp = await fetch(`/users/search?q=${encodeURIComponent(val)}`, { credentials: 'include' });
       if (resp.status === 401) { setError('Please log in to search users.'); setList([]); return; }
       if (!resp.ok) { setError('Search failed.'); setList([]); return; }
@@ -117,6 +117,12 @@ function InvitePanel({ clubId }: { clubId: number }) {
 }
 
 export default function PrivateClubChat({ club }: Props) {
+  const page = usePage<any>();
+  const user = page.props.auth?.user;
+  const mutedUntil = user?.muted_until ? new Date(user.muted_until) : null;
+  const now = new Date();
+  const isMuted = mutedUntil !== null && mutedUntil > now;
+
   return (
     <AppLayout>
       <div className="mb-4">
@@ -124,9 +130,19 @@ export default function PrivateClubChat({ club }: Props) {
         <p className="text-sm text-gray-600">Private chat for this book</p>
       </div>
 
-      {/* Force ChatBox to use the private club id */}
-      <section className="mt-4">
-        <ChatBox bookId={club.book_id} canPost clubIdOverride={club.id} />
+      <section className="mt-4 space-y-2">
+        {/* Force ChatBox to use the private club id */}
+        <ChatBox
+          bookId={club.book_id}
+          canPost={!isMuted} 
+          clubIdOverride={club.id}
+        />
+
+        {isMuted && mutedUntil && (
+          <p className="text-xs text-red-600">
+            You are muted until {mutedUntil.toLocaleString()}.
+          </p>
+        )}
       </section>
 
       {/* Invite users (owner/mods should be authorized server-side) */}

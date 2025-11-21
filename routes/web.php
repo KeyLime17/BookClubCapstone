@@ -10,6 +10,9 @@ use App\Http\Controllers\ClubController;
 use App\Http\Controllers\BookSubmissionController;
 use App\Http\Controllers\ModerationController;
 
+// if user is banned
+Route::get('/banned', fn () => Inertia::render('Banned'))
+    ->name('banned');
 
 // routes Handling submission of new books
 Route::middleware('auth', 'not-banned')->group(function () {
@@ -19,11 +22,6 @@ Route::middleware('auth', 'not-banned')->group(function () {
     Route::post('/books/submit', [BookSubmissionController::class, 'store'])
         ->name('books.submit.store');
 });
-
-// if user is banned
-Route::get('/banned', fn () => Inertia::render('Banned'))
-    ->name('banned');
-
 
 // Admin-only review routes
 Route::middleware(['auth', 'admin', 'not-banned'])->group(function () {
