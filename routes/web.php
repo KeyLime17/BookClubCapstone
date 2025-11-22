@@ -63,7 +63,61 @@ Route::middleware(['auth', 'admin', 'not-banned'])->group(function () {
 
 // routes/web.php
 // Home page → renders resources/js/Pages/Home.tsx
-Route::get('/', fn () => Inertia::render('Home'))->name('home');
+
+Route::get('/', function () {
+    $limit = 10;
+
+    // New Releases: most recent released_at (if set)
+    $newReleases = DB::table('books')
+        ->whereNotNull('released_at')
+        ->orderByDesc('released_at')
+        ->limit($limit)
+        ->get([
+            'id',
+            'title',
+            'author',
+            'cover_url',
+            'released_at',
+            'created_at',
+        ]);
+
+    // Top Rated: by avg rating, then rating count
+    $topRated = DB::table('books')
+        ->join('ratings', 'ratings.book_id', '=', 'books.id')
+        ->select(
+            'books.id',
+            'books.title',
+            'books.author',
+            'books.cover_url',
+            DB::raw('AVG(ratings.rating) as avg_rating'),
+            DB::raw('COUNT(ratings.id) as ratings_count')
+        )
+        ->groupBy('books.id', 'books.title', 'books.author', 'books.cover_url')
+        ->havingRaw('COUNT(ratings.id) >= 1')
+        ->orderByDesc('avg_rating')
+        ->orderByDesc('ratings_count')
+        ->limit($limit)
+        ->get();
+
+    // Newly Added: most recent created_at
+    $newlyAdded = DB::table('books')
+        ->orderByDesc('created_at')
+        ->limit($limit)
+        ->get([
+            'id',
+            'title',
+            'author',
+            'cover_url',
+            'created_at',
+            'released_at',
+        ]);
+
+    return Inertia::render('Home', [
+        'newReleases' => $newReleases,
+        'topRated'    => $topRated,
+        'newlyAdded'  => $newlyAdded,
+    ]);
+})->name('home');
 
 // Catalog list (with filters, pagination) → resources/js/Pages/Catalog.tsx
 // Controller uses Query Builder (no Eloquent) to fetch books/genres.
