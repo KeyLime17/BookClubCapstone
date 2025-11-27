@@ -8,34 +8,69 @@ export default function AppLayout({ children }: PropsWithChildren) {
     | undefined;
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
-      <header className="border-b bg-white">
-        <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-6">
-            <Link href="/" className="text-lg font-semibold">BookClub</Link>
-            <Link href="/" className="hover:underline">Home</Link>
-            <Link href="/catalog" className="hover:underline">Catalog</Link>
-            <Link href="/clubs/private" className="hover:underline">Private Clubs</Link>
+    <div className="min-h-screen bg-background text-foreground">
+      <header className="border-b border-border bg-card/80 backdrop-blur">
+        <nav className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-y-2 px-3 py-2">
+          {/* LEFT: logo + main links */}
+          <div className="flex items-center gap-4">
+            {/* Hide BookClub text on very small screens */}
+            <Link
+              href="/"
+              className="text-lg font-semibold text-primary hidden sm:inline"
+            >
+              BookClub
+            </Link>
+
+            <Link
+              href="/"
+              className="text-sm text-foreground/80 hover:text-primary"
+            >
+              Home
+            </Link>
+            <Link
+              href="/catalog"
+              className="text-sm text-foreground/80 hover:text-primary"
+            >
+              Catalog
+            </Link>
+
+            {/* Hide these extra links on mobile to avoid crowding */}
+            <Link
+              href="/clubs/private"
+              className="hidden sm:inline text-sm text-foreground/80 hover:text-primary"
+            >
+              Private Clubs
+            </Link>
 
             {user?.is_admin && (
               <>
-                <Link href="/review" className="hover:underline">
+                <Link
+                  href="/review"
+                  className="hidden sm:inline text-sm text-foreground/80 hover:text-primary"
+                >
                   Review
                 </Link>
-                <Link href="/moderation" className="hover:underline">
+                <Link
+                  href="/moderation"
+                  className="hidden sm:inline text-sm text-foreground/80 hover:text-primary"
+                >
                   Moderation
                 </Link>
               </>
             )}
           </div>
 
-          <div className="flex items-center gap-4">
+          {/* RIGHT: auth area */}
+          <div className="flex items-center gap-2 text-sm">
             {user ? (
               <>
-                <span className="text-sm">Hi, {user.name}</span>
+                {/* Hide greeting on very small screens */}
+                <span className="hidden sm:inline text-foreground/80">
+                  Hi, {user.name}
+                </span>
                 <Link
                   href="/profile"
-                  className="rounded px-3 py-1 text-sm ring-1 ring-gray-300 hover:bg-gray-100"
+                  className="rounded px-3 py-1 bg-card border border-border hover:bg-card/80"
                 >
                   Profile
                 </Link>
@@ -43,17 +78,22 @@ export default function AppLayout({ children }: PropsWithChildren) {
                   href="/logout"
                   method="post"
                   as="button"
-                  className="rounded px-3 py-1 text-sm ring-1 ring-gray-300 hover:bg-gray-100"
+                  className="rounded px-3 py-1 border border-border hover:bg-card/80"
                 >
                   Log out
                 </Link>
               </>
             ) : (
               <>
-                <Link href="/login" className="text-sm hover:underline">Log in</Link>
+                <Link
+                  href="/login"
+                  className="text-foreground/80 hover:text-primary"
+                >
+                  Log in
+                </Link>
                 <Link
                   href="/register"
-                  className="rounded bg-gray-900 px-3 py-1 text-sm text-white hover:bg-gray-800"
+                  className="rounded bg-primary px-3 py-1 text-primary-foreground hover:bg-primary/90"
                 >
                   Register
                 </Link>

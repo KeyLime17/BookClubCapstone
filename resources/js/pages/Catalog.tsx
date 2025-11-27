@@ -114,10 +114,29 @@ export default function Catalog({ books, genres, filters }: Props) {
       {/* Results */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {books.data.map((b) => (
-          <Link key={b.id} href={`/books/${b.id}`} className="rounded-lg border bg-white p-4 block hover:shadow">
-            <div className="mb-3 aspect-[3/4] w-full overflow-hidden rounded bg-gray-100" />
+          <Link
+            key={b.id}
+            href={`/books/${b.id}`}
+            className="rounded-lg border bg-white p-4 block hover:shadow"
+          >
+            <div className="mb-3 aspect-[3/4] w-full overflow-hidden rounded bg-gray-100 flex items-center justify-center">
+              {b.cover_url ? (
+                <img
+                  src={b.cover_url}
+                  alt={`${b.title} cover`}
+                  className="h-full w-full object-contain"
+                />
+              ) : (
+                <span className="text-[11px] text-gray-500 px-2 text-center">
+                  No cover
+                </span>
+              )}
+            </div>
+
             <h3 className="font-semibold">{b.title}</h3>
-            <p className="text-sm text-gray-600">{b.author} · {b.genre}</p>
+            <p className="text-sm text-gray-600">
+              {b.author} · {b.genre}
+            </p>
             <p className="text-xs text-gray-500">
               {b.released_at ? new Date(b.released_at).getFullYear() : "—"}
             </p>

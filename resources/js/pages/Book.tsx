@@ -66,14 +66,14 @@ export default function BookPage({ book, avg_rating, ratings_count, my_rating, m
   return (
     <AppLayout>
       {/* breadcrumb */}
-      <nav className="mb-4 text-sm">
-        <Link href="/catalog" className="text-gray-600 hover:underline">
+      <nav className="mb-4 text-sm hidden sm:block">
+        <Link href="/catalog" className="text-foreground/70 hover:underline">
           Catalog
         </Link>
-        <span className="mx-2 text-gray-400">/</span>
-        <span className="text-gray-800">{book.title}</span>
+        <span className="mx-2 text-foreground/40">/</span>
+        <span className="text-foreground">{book.title}</span>
       </nav>
-
+      
       {/* HERO: details/ratings LEFT, cover RIGHT (as you asked) */}
       <div className="grid gap-6 md:grid-cols-2 md:items-start">
         {/* LEFT: title/meta + ratings + description */}
