@@ -42,20 +42,10 @@ export default function AppLayout({ children }: PropsWithChildren) {
               Private Clubs
             </Link>
 
-            {user?.is_admin && (
+            {!!user?.is_admin && (
               <>
-                <Link
-                  href="/review"
-                  className="hidden sm:inline text-sm text-foreground/80 hover:text-primary"
-                >
-                  Review
-                </Link>
-                <Link
-                  href="/moderation"
-                  className="hidden sm:inline text-sm text-foreground/80 hover:text-primary"
-                >
-                  Moderation
-                </Link>
+                <Link href="/review" className="hover:underline">Review</Link>
+                <Link href="/moderation" className="hover:underline">Moderation</Link>
               </>
             )}
           </div>

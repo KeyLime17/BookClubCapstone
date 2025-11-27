@@ -121,7 +121,7 @@ class BookSubmissionController extends Controller
                     'name'      => $book->title . ' — Global Discussion',
                     'book_id'   => $book->id,
                     'is_public' => true,
-                    'owner_id'  => Auth::id(), // or null if owner is optional
+                    'owner_id'  => null,
                 ]);
             }
         });

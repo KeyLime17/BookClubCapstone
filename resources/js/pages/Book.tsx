@@ -36,7 +36,7 @@ export default function BookPage({ book, avg_rating, ratings_count, my_rating, m
     setMine(value); // optimistic
     router.post(
       `/books/${book.id}/rate`,
-      { rating: value }, // add { review } later if you want text
+      { rating: value }, 
       { preserveScroll: true, replace: true }
     );
   };
@@ -73,8 +73,8 @@ export default function BookPage({ book, avg_rating, ratings_count, my_rating, m
         <span className="mx-2 text-foreground/40">/</span>
         <span className="text-foreground">{book.title}</span>
       </nav>
-      
-      {/* HERO: details/ratings LEFT, cover RIGHT (as you asked) */}
+
+      {/* HERO: details/ratings LEFT, cover RIGHT */}
       <div className="grid gap-6 md:grid-cols-2 md:items-start">
         {/* LEFT: title/meta + ratings + description */}
         <section className="space-y-5 md:order-1">
@@ -86,64 +86,121 @@ export default function BookPage({ book, avg_rating, ratings_count, my_rating, m
             </p>
           </header>
 
-          {/* Average rating + your rating */}
-          <div className="rounded-lg border bg-white p-4">
+          {/* Ratings – merged average + your rating */}
+          <div className="rounded-lg border border-border bg-card p-4">
             <h2 className="mb-2 font-medium">Ratings</h2>
 
-            {/* Average display */}
-            <div className="mb-3 flex items-center gap-2">
-              <div className="flex">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star key={i} filled={i < avgRounded} label="average star" />
-                ))}
-              </div>
-              <span className="text-sm text-gray-700">
-                {avg_rating ? avg_rating.toFixed(1) : "—"} ({ratings_count})
+            {/* Top row: average summary + login prompt */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-sm text-foreground/80">
+                Average: {avg_rating ? avg_rating.toFixed(1) : "—"} ({ratings_count})
               </span>
+
+              {!auth?.user && (
+                <p className="text-xs text-foreground/70">
+                  <Link href="/login" className="underline">
+                    Log in
+                  </Link>{" "}
+                  to rate this book.
+                </p>
+              )}
             </div>
 
-            {/* My rating editor */}
-            {auth?.user ? (
-              <div className="flex items-center gap-3">
+            {/* Stars */}
+            <div className="mt-3 flex items-center gap-3">
+              {auth?.user ? (
+                // Logged-in: interactive merged stars (yellow avg + blue overlay for mine)
                 <div className="flex">
                   {Array.from({ length: 5 }).map((_, i) => {
                     const val = i + 1;
-                    const filled = mine ? val <= mine : false;
+                    const avgFilled = val <= avgRounded;
+                    const mineFilled = mine != null && val <= mine;
+
                     return (
-                      <Star
+                      <button
                         key={val}
-                        filled={filled}
+                        type="button"
+                        aria-label={`Set my rating to ${val}`}
                         onClick={() => submitRating(val)}
-                        label={`set my rating to ${val}`}
-                      />
+                        className="h-6 w-6"
+                      >
+                        <div className="relative h-full w-full">
+                          {/* Base: average rating (yellow) */}
+                          <svg
+                            viewBox="0 0 20 20"
+                            className={`absolute inset-0 h-full w-full ${
+                              avgFilled
+                                ? "text-yellow-400"
+                                : "text-muted-foreground/30"
+                            }`}
+                            fill="currentColor"
+                          >
+                            <path d="M10 15.27l-5.18 3.05 1.4-5.99L1 7.97l6.09-.52L10 1.5l2.91 5.95 6.09.52-5.22 4.36 1.4 5.99L10 15.27z" />
+                          </svg>
+
+                          {/* Overlay: my rating (blue, semi-transparent) */}
+                          {mineFilled && (
+                            <svg
+                              viewBox="0 0 20 20"
+                              className="absolute inset-0 h-full w-full text-blue-500/30"
+                              fill="currentColor"
+                            >
+                              <path d="M10 15.27l-5.18 3.05 1.4-5.99L1 7.97l6.09-.52L10 1.5l2.91 5.95 6.09.52-5.22 4.36 1.4 5.99L10 15.27z" />
+                            </svg>
+                          )}
+                        </div>
+                      </button>
                     );
                   })}
                 </div>
+              ) : (
+                // Logged-out: read-only average stars
+                <div className="flex">
+                  {Array.from({ length: 5 }).map((_, i) => {
+                    const val = i + 1;
+                    const avgFilled = val <= avgRounded;
+                    return (
+                      <div key={val} className="h-6 w-6" aria-hidden="true">
+                        <svg
+                          viewBox="0 0 20 20"
+                          className={`h-full w-full ${
+                            avgFilled
+                              ? "text-yellow-400"
+                              : "text-muted-foreground/30"
+                          }`}
+                          fill="currentColor"
+                        >
+                          <path d="M10 15.27l-5.18 3.05 1.4-5.99L1 7.97l6.09-.52L10 1.5l2.91 5.95 6.09.52-5.22 4.36 1.4 5.99L10 15.27z" />
+                        </svg>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
-                {mine ? (
+              {auth?.user &&
+                (mine ? (
                   <button
                     type="button"
                     onClick={removeRating}
-                    className="text-xs text-gray-600 underline"
-                    title="Remove my rating"
+                    className="text-xs text-foreground/70 underline"
                   >
                     Remove my rating
                   </button>
                 ) : (
-                  <span className="text-xs text-gray-500">Click a star to rate</span>
-                )}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-600">
-                <Link href="/login" className="underline">Log in</Link> to rate this book.
-              </p>
-            )}
+                  <span className="text-xs text-foreground/60">
+                    Click a star to rate.
+                  </span>
+                ))}
+            </div>
           </div>
 
           {book.description && (
             <div className="rounded-lg border bg-white p-4">
               <h2 className="mb-2 font-medium">About this book</h2>
-              <p className="text-sm text-gray-700 whitespace-pre-line">{book.description}</p>
+              <p className="text-sm text-gray-700 whitespace-pre-line">
+                {book.description}
+              </p>
             </div>
           )}
         </section>
@@ -166,8 +223,8 @@ export default function BookPage({ book, avg_rating, ratings_count, my_rating, m
       <section className="mt-6 space-y-4">
         <ChatBox bookId={book.id} canPost={!!auth?.user} />
 
-        {auth?.user && (
-          my_private_club_id ? (
+        {auth?.user &&
+          (my_private_club_id ? (
             <a
               href={`/clubs/${my_private_club_id}/chat`}
               className="inline-flex items-center text-sm px-3 py-2 rounded border hover:bg-gray-50"
@@ -176,14 +233,25 @@ export default function BookPage({ book, avg_rating, ratings_count, my_rating, m
             </a>
           ) : (
             <form method="post" action={`/books/${book.id}/private-club`}>
-              <input type="hidden" name="_token" value={(document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || ''} />
-              <button type="submit" className="text-sm px-3 py-2 rounded border hover:bg-gray-50">
+              <input
+                type="hidden"
+                name="_token"
+                value={
+                  (document.querySelector(
+                    'meta[name="csrf-token"]'
+                  ) as HTMLMetaElement)?.content || ""
+                }
+              />
+              <button
+                type="submit"
+                className="text-sm px-3 py-2 rounded border hover:bg-gray-50"
+              >
                 Create a private chat for this book
               </button>
             </form>
-          )
-        )}
+          ))}
       </section>
     </AppLayout>
   );
+
 }

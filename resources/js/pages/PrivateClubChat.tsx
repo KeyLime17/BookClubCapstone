@@ -122,12 +122,13 @@ export default function PrivateClubChat({ club }: Props) {
   const mutedUntil = user?.muted_until ? new Date(user.muted_until) : null;
   const now = new Date();
   const isMuted = mutedUntil !== null && mutedUntil > now;
+  const isPublic = club.is_public;
+  const boonName = club.name
 
   return (
     <AppLayout>
       <div className="mb-4">
         <h1 className="text-2xl font-semibold">{club.name}</h1>
-        <p className="text-sm text-gray-600">Private chat for this book</p>
       </div>
 
       <section className="mt-4 space-y-2">
