@@ -131,6 +131,15 @@ Route::middleware('auth')->group(function () {
     // leave a club
     Route::delete('/clubs/{club}/leave', [ClubController::class, 'leaveWeb'])
         ->name('clubs.leave');
+    
+    // Rename a club
+    Route::patch('/clubs/{club}', [ClubController::class, 'updateName'])
+        ->name('clubs.updateName');
+
+    // For club deletion
+    Route::delete('/clubs/{club}', [ClubController::class, 'destroy'])
+        ->name('clubs.destroy');
+
 
     Route::post('/books/{id}/rate',   [BookRatingController::class, 'upsert'])->name('books.rate');
     Route::delete('/books/{id}/rate', [BookRatingController::class, 'destroy'])->name('books.rate.destroy');

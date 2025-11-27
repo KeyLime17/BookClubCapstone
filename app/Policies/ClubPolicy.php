@@ -65,5 +65,11 @@ class ClubPolicy
             ->where('role', 'moderator')
             ->exists();
     }
+
+    public function delete(User $user, Club $club): bool
+    {
+        return (int)$club->owner_id === (int)$user->id;
+    }
+
 }
 

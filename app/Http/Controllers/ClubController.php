@@ -137,6 +137,67 @@ class ClubController extends Controller
         return response()->noContent();
     }
 
+
+    /**
+     * delete a club
+     */
+    public function destroy(Club $club)
+    {
+        // 1) Policy: only owner can delete
+        $this->authorize('delete', $club);
+
+        // 2) Never delete public/global clubs this way
+        if ($club->is_public) {
+            abort(403, 'You cannot delete public/global clubs.');
+        }
+
+        // 3) Remove all membership rows from pivot table
+        $club->members()->detach();
+
+        // 4) Delete all messages for this club
+        // via relation (preferred):
+        $club->messages()->delete();
+
+        // If you didn’t add the relation, equivalently:
+        // \App\Models\Message::where('club_id', $club->id)->delete();
+
+        // 5) Delete the club itself
+        $club->delete();
+
+        return redirect()
+            ->route('clubs.private')
+            ->with('success', 'Club and its messages were deleted.');
+    }
+
+    /**
+     * Rename a club
+     */
+    public function updateName(\App\Models\Club $club, \Illuminate\Http\Request $request)
+    {
+        // Only owner can rename; reuse your policy:
+        $this->authorize('delete', $club); // or create a dedicated 'update' policy
+
+        if ($club->is_public) {
+            abort(403, 'You cannot rename public/global clubs here.');
+        }
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+        ]);
+
+        $club->name = $data['name'];
+        $club->save();
+
+        if ($request->wantsJson()) {
+            return response()->json(['status' => 'ok']);
+        }
+
+        return redirect()
+            ->route('clubs.private')
+            ->with('success', 'Club renamed.');
+    }
+
+
     /**
      * Leave any club.
      */
