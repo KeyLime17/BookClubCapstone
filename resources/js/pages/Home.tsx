@@ -22,9 +22,30 @@ function BookCarousel({
   title: string;
   books: BookSummary[];
 }) {
-  const [offset, setOffset] = useState(0);
-  const visible = 6; // how many books to show at once
-  const maxOffset = Math.max(0, books.length - visible);
+  const [offset, setOffset] = useState(0);        // used for desktop/tablet
+  const [current, setCurrent] = useState(0);      // used for mobile
+  const [itemsPerPage, setItemsPerPage] = useState(6);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Decide how many books to show & whether we are in "mobile" mode
+  React.useEffect(() => {
+    const compute = () => {
+      const w = window.innerWidth;
+      if (w < 640) {
+        setIsMobile(true);
+        setItemsPerPage(1);
+      } else if (w < 1024) {
+        setIsMobile(false);
+        setItemsPerPage(4);
+      } else {
+        setIsMobile(false);
+        setItemsPerPage(6);
+      }
+    };
+    compute();
+    window.addEventListener("resize", compute);
+    return () => window.removeEventListener("resize", compute);
+  }, []);
 
   if (!books || books.length === 0) {
     return (
@@ -35,18 +56,36 @@ function BookCarousel({
     );
   }
 
-  const canPrev = offset > 0;
-  const canNext = offset < maxOffset;
-  const view = books.slice(offset, offset + visible);
+  // Desktop/tablet logic
+  const visible = itemsPerPage;
+  const maxOffset = Math.max(0, books.length - visible);
+  const canPrevDesktop = offset > 0;
+  const canNextDesktop = offset < maxOffset;
+  const desktopView = books.slice(offset, offset + visible);
 
-  const prev = () => {
-    if (!canPrev) return;
+  const prevDesktop = () => {
+    if (!canPrevDesktop) return;
     setOffset((prev) => Math.max(0, prev - 1));
   };
 
-  const next = () => {
-    if (!canNext) return;
+  const nextDesktop = () => {
+    if (!canNextDesktop) return;
     setOffset((prev) => Math.min(maxOffset, prev + 1));
+  };
+
+  // Mobile logic: one book at a time with sliding animation
+  const maxIndexMobile = books.length - 1;
+  const canPrevMobile = current > 0;
+  const canNextMobile = current < maxIndexMobile;
+
+  const prevMobile = () => {
+    if (!canPrevMobile) return;
+    setCurrent((c) => Math.max(0, c - 1));
+  };
+
+  const nextMobile = () => {
+    if (!canNextMobile) return;
+    setCurrent((c) => Math.min(maxIndexMobile, c + 1));
   };
 
   return (
@@ -56,30 +95,90 @@ function BookCarousel({
         <h2 className="text-lg font-semibold">{title}</h2>
       </div>
 
-      <div className="relative">
-        {/* Arrows */}
-        <button
-          type="button"
-          onClick={prev}
-          disabled={!canPrev}
-          className="absolute left-0 top-1/2 -translate-y-1/2 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card/90 text-sm font-semibold text-foreground hover:bg-card disabled:opacity-40"
-        >
-          {"<"}
-        </button>
-        <button
-          type="button"
-          onClick={next}
-          disabled={!canNext}
-          className="absolute right-0 top-1/2 -translate-y-1/2 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card/90 text-sm font-semibold text-foreground hover:bg-card disabled:opacity-40"
-        >
-          {">"}
-        </button>
+      {/* MOBILE: single-slide animated carousel */}
+      {isMobile ? (
+        <div className="relative">
+          {/* Arrows */}
+          <button
+            type="button"
+            onClick={prevMobile}
+            disabled={!canPrevMobile}
+            className="absolute left-1 top-1/2 -translate-y-1/2 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card/90 text-sm font-semibold text-foreground hover:bg-card disabled:opacity-40"
+          >
+            {"<"}
+          </button>
+          <button
+            type="button"
+            onClick={nextMobile}
+            disabled={!canNextMobile}
+            className="absolute right-1 top-1/2 -translate-y-1/2 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card/90 text-sm font-semibold text-foreground hover:bg-card disabled:opacity-40"
+          >
+            {">"}
+          </button>
 
-        {/* Books row */}
-        <div className="overflow-hidden">
+          <div className="overflow-hidden">
+            {/* Whole strip sliding left/right */}
+            <div
+              className="flex transition-transform duration-300 ease-out"
+              style={{ transform: `translateX(-${current * 100}%)` }}
+            >
+              {books.map((book) => (
+                <div key={book.id} className="min-w-full flex justify-center px-8">
+                  <Link
+                    href={`/books/${book.id}`}
+                    className="flex flex-col items-center w-40 group"
+                  >
+                    <div className="text-sm font-medium text-center mb-2 h-10 overflow-hidden group-hover:underline">
+                      {book.title}
+                    </div>
+                    <div className="w-full h-40 overflow-hidden rounded border border-border bg-card flex items-center justify-center">
+                      {book.cover_url ? (
+                        <img
+                          src={book.cover_url}
+                          alt={`${book.title} cover`}
+                          className="max-h-full max-w-full object-contain"
+                        />
+                      ) : (
+                        <span className="text-[11px] text-foreground/60 px-1 text-center">
+                          No cover
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Fades on edges */}
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-background to-transparent z-10" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-background to-transparent z-10" />
+        </div>
+      ) : (
+        // DESKTOP/TABLET: multi-item view (like before)
+        <div className="relative">
+          {/* Arrows */}
+          <button
+            type="button"
+            onClick={prevDesktop}
+            disabled={!canPrevDesktop}
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card/90 text-sm font-semibold text-foreground hover:bg-card disabled:opacity-40"
+          >
+            {"<"}
+          </button>
+          <button
+            type="button"
+            onClick={nextDesktop}
+            disabled={!canNextDesktop}
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card/90 text-sm font-semibold text-foreground hover:bg-card disabled:opacity-40"
+          >
+            {">"}
+          </button>
+
+          {/* Books row */}
           <div className="overflow-hidden">
             <div className="flex justify-center gap-3 sm:gap-4 px-8 sm:px-10">
-              {view.map((book) => (
+              {desktopView.map((book) => (
                 <Link
                   key={book.id}
                   href={`/books/${book.id}`}
@@ -110,10 +209,11 @@ function BookCarousel({
             <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background to-transparent z-10" />
           </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }
+
 
 export default function Home() {
   const { auth, newReleases, topRated, newlyAdded } =
