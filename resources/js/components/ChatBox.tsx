@@ -155,7 +155,7 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Pro
     if (!clubId || !body.trim() || !effectiveCanPost) return;
 
     const token =
-      (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)
+      (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null)
         ?.content || '';
 
     try {
@@ -163,20 +163,21 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Pro
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
           'X-CSRF-TOKEN': token,
         },
-        credentials: 'include',
+        credentials: 'same-origin', // 👈 session cookie goes with the request
         body: JSON.stringify({ body }),
       });
 
       const text = await resp.text();
-      const json = (() => {
-        try {
-          return JSON.parse(text);
-        } catch {
-          return null;
-        }
-      })();
+      let json: any = null;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        // non-JSON (like the 419 HTML) is left in `text`
+      }
 
       if (resp.status === 201 && json) {
         setBody('');
@@ -195,6 +196,7 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Pro
       alert('Network or server error.');
     }
   };
+
 
   return (
     <div className="w-full border rounded-xl p-3 flex flex-col gap-3">
