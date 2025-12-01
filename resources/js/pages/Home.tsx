@@ -22,8 +22,8 @@ function BookCarousel({
   title: string;
   books: BookSummary[];
 }) {
-  const [offset, setOffset] = useState(0);        // used for desktop/tablet
-  const [current, setCurrent] = useState(0);      // used for mobile
+  const [offset, setOffset] = useState(0);        // desktop/tablet index
+  const [current, setCurrent] = useState(0);      // mobile index
   const [itemsPerPage, setItemsPerPage] = useState(6);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -61,7 +61,6 @@ function BookCarousel({
   const maxOffset = Math.max(0, books.length - visible);
   const canPrevDesktop = offset > 0;
   const canNextDesktop = offset < maxOffset;
-  const desktopView = books.slice(offset, offset + visible);
 
   const prevDesktop = () => {
     if (!canPrevDesktop) return;
@@ -155,7 +154,7 @@ function BookCarousel({
           <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-background to-transparent z-10" />
         </div>
       ) : (
-        // DESKTOP/TABLET: multi-item view (like before)
+        // DESKTOP/TABLET: multi-item sliding strip
         <div className="relative">
           {/* Arrows */}
           <button
@@ -175,16 +174,25 @@ function BookCarousel({
             {">"}
           </button>
 
-          {/* Books row */}
           <div className="overflow-hidden">
-            <div className="flex justify-center gap-3 sm:gap-4 px-8 sm:px-10">
-              {desktopView.map((book) => (
+            <div
+              className="flex gap-3 sm:gap-4 px-8 sm:px-10 transition-transform duration-300 ease-out"
+              style={{
+                transform: `translateX(-${(offset * 100) / visible}%)`,
+              }}
+            >
+              {books.map((book) => (
                 <Link
                   key={book.id}
                   href={`/books/${book.id}`}
-                  className="flex flex-col items-center w-24 sm:w-28 md:w-32 group"
+                  className="group flex flex-col items-center"
+                  style={{
+                    // each item takes 1/visible of the viewport width
+                    width: `${100 / visible}%`,
+                    flexShrink: 0,
+                  }}
                 >
-                  <div className="text-[11px] sm:text-xs font-medium text-center mb-2 h-8 overflow-hidden group-hover:underline">
+                  <div className="text-[11px] sm:text-xs font-medium text-center mb-2 h-8 overflow-hidden group-hover:underline px-1">
                     {book.title}
                   </div>
                   <div className="w-full h-28 sm:h-32 md:h-36 overflow-hidden rounded border border-border bg-card flex items-center justify-center">
@@ -224,11 +232,6 @@ export default function Home() {
 
   return (
     <AppLayout>
-      <h1 className="mb-2 text-2xl font-semibold">Home</h1>
-      <p className="text-sm text-foreground/70">
-        Discover new books, see what&apos;s popular, and join discussions.
-      </p>
-
       {/* Carousels integrated into the page */}
       <section className="mt-6 space-y-4">
         <BookCarousel title="New Releases" books={newReleases} />

@@ -1,7 +1,6 @@
 import AppLayout from "@/layouts/AppLayout";
-import { router } from "@inertiajs/react";
-import { useEffect, useState } from "react";
-import { Link } from "@inertiajs/react";
+import { router, Link as InertiaLink } from "@inertiajs/react";
+import { useState } from "react";
 
 type Book = {
   id: number;
@@ -13,13 +12,13 @@ type Book = {
   genre_slug: string;
 };
 
-type Link = { url: string | null; label: string; active: boolean };
+type PaginationLink = { url: string | null; label: string; active: boolean };
 
 type Paginated<T> = {
   data: T[];
   current_page: number;
   last_page: number;
-  links: Link[];
+  links: PaginationLink[];
 };
 
 type Genre = { id: number; name: string; slug: string };
@@ -27,8 +26,15 @@ type Genre = { id: number; name: string; slug: string };
 type Props = {
   books: Paginated<Book>;
   genres: Genre[];
-  filters: { q?: string | null; genre?: string | null; from?: string | null; to?: string | null };
+  filters: {
+    q?: string | null;
+    genre?: string | null;
+    from?: string | null;
+    to?: string | null;
+  };
 };
+
+type ViewMode = "comfortable" | "compact" | "dense";
 
 export default function Catalog({ books, genres, filters }: Props) {
   // local form state (initialized from server-provided filters)
@@ -36,6 +42,9 @@ export default function Catalog({ books, genres, filters }: Props) {
   const [genre, setGenre] = useState(filters.genre ?? "");
   const [from, setFrom] = useState(filters.from ?? "");
   const [to, setTo] = useState(filters.to ?? "");
+
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("comfortable");
 
   // submit filters with GET (Inertia)
   const apply = (e?: React.FormEvent) => {
@@ -48,99 +57,247 @@ export default function Catalog({ books, genres, filters }: Props) {
 
     router.get("/catalog", params, {
       preserveState: true,
-      replace: true, // cleaner history
+      replace: true,
       preserveScroll: true,
     });
   };
 
-  const reset = () => {
-    setQ("");
-    setGenre("");
-    setFrom("");
-    setTo("");
-    router.get("/catalog", {}, { preserveState: false, replace: true, preserveScroll: true });
+  const clearFilter = (key: "q" | "genre" | "from" | "to") => {
+    if (key === "q") setQ("");
+    if (key === "genre") setGenre("");
+    if (key === "from") setFrom("");
+    if (key === "to") setTo("");
+    apply(); // re-run with updated state
   };
+
+  const cycleViewMode = () => {
+    setViewMode((prev) =>
+      prev === "comfortable" ? "compact" : prev === "compact" ? "dense" : "comfortable"
+    );
+  };
+
+  // grid + card classes based on view mode
+  let gridClasses = "grid gap-4 sm:grid-cols-2 lg:grid-cols-3";
+  let cardPadding = "p-4";
+  let imgHeight = "h-48";
+  let titleClass = "font-semibold text-sm sm:text-base";
+  let metaClass = "text-sm";
+
+  if (viewMode === "compact") {
+    gridClasses = "grid gap-3 sm:grid-cols-3 lg:grid-cols-4";
+    cardPadding = "p-3";
+    imgHeight = "h-40";
+    titleClass = "font-semibold text-sm";
+    metaClass = "text-xs";
+  } else if (viewMode === "dense") {
+    gridClasses = "grid gap-3 sm:grid-cols-3 lg:grid-cols-5";
+    cardPadding = "p-2";
+    imgHeight = "h-32";
+    titleClass = "font-semibold text-xs";
+    metaClass = "text-[11px]";
+  }
 
   return (
     <AppLayout>
-      <h1 className="mb-4 text-2xl font-semibold">Catalog</h1>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">Catalog</h1>
 
-      {/* Filters */}
-      <form onSubmit={apply} className="mb-6 grid gap-3 md:grid-cols-5">
-        <input
-          type="text"
-          placeholder="Search title or author"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          className="rounded border px-3 py-2 md:col-span-2"
-        />
-
-        <select
-          value={genre}
-          onChange={(e) => setGenre(e.target.value)}
-          className="rounded border px-3 py-2"
+        {/* View mode toggle */}
+        <button
+          type="button"
+          onClick={cycleViewMode}
+          className="inline-flex items-center gap-1 rounded border border-border bg-card px-3 py-1.5 text-xs sm:text-sm hover:bg-card/80"
+          title="Change card size"
         >
-          <option value="">All genres</option>
-          {genres.map((g) => (
-            <option key={g.id} value={g.slug}>{g.name}</option>
-          ))}
-        </select>
+          {/* simple square-grid icon */}
+          <span className="grid grid-cols-2 gap-[2px]">
+            <span className="h-2 w-2 rounded-sm border border-border" />
+            <span className="h-2 w-2 rounded-sm border border-border" />
+            <span className="h-2 w-2 rounded-sm border border-border" />
+            <span className="h-2 w-2 rounded-sm border border-border" />
+          </span>
+          <span className="hidden sm:inline">
+            {viewMode === "comfortable"
+              ? "Comfortable"
+              : viewMode === "compact"
+              ? "Compact"
+              : "Dense"}
+          </span>
+        </button>
+      </div>
 
-        <input
-          type="date"
-          value={from}
-          onChange={(e) => setFrom(e.target.value)}
-          className="rounded border px-3 py-2"
-          aria-label="From date"
-        />
-        <input
-          type="date"
-          value={to}
-          onChange={(e) => setTo(e.target.value)}
-          className="rounded border px-3 py-2"
-          aria-label="To date"
-        />
+      {/* Search + filter controls */}
+      <form onSubmit={apply} className="mb-3 space-y-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <input
+            type="text"
+            placeholder="Search title or author"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="flex-1 rounded border border-border px-3 py-2 text-sm"
+          />
 
-        <div className="flex gap-2 md:col-span-5">
-          <button type="submit" className="rounded bg-gray-900 px-4 py-2 text-sm text-white hover:bg-gray-800">
-            Apply
-          </button>
-          <button type="button" onClick={reset} className="rounded px-4 py-2 text-sm ring-1 ring-gray-300 hover:bg-gray-100">
-            Reset
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Filter toggle button */}
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((o) => !o)}
+              className="inline-flex items-center gap-1 rounded border border-border bg-card px-3 py-2 text-sm hover:bg-card/80"
+            >
+              {/* funnel icon */}
+              <svg
+                viewBox="0 0 24 24"
+                className="h-4 w-4"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path
+                  d="M4 5h16l-5.5 7v5l-5 2v-7L4 5z"
+                  fill="currentColor"
+                />
+              </svg>
+              <span>Filters</span>
+            </button>
+
+            {/* Apply button */}
+            <button
+              type="submit"
+              className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+
+        {/* Filter panel (collapsible) */}
+        {filtersOpen && (
+          <div className="rounded border border-border bg-card px-3 py-3 text-sm space-y-3">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-foreground/70">
+                  Genre
+                </label>
+                <select
+                  value={genre}
+                  onChange={(e) => setGenre(e.target.value)}
+                  className="rounded border border-border px-2 py-2 text-sm"
+                >
+                  <option value="">All genres</option>
+                  {genres.map((g) => (
+                    <option key={g.id} value={g.slug}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-foreground/70">
+                  From (release date)
+                </label>
+                <input
+                  type="date"
+                  value={from}
+                  onChange={(e) => setFrom(e.target.value)}
+                  className="rounded border border-border px-2 py-2 text-sm"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-foreground/70">
+                  To (release date)
+                </label>
+                <input
+                  type="date"
+                  value={to}
+                  onChange={(e) => setTo(e.target.value)}
+                  className="rounded border border-border px-2 py-2 text-sm"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Active filter chips */}
+        <div className="flex flex-wrap gap-2 text-xs mt-1">
+          {q.trim() && (
+            <button
+              type="button"
+              onClick={() => clearFilter("q")}
+              className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 hover:bg-muted/80"
+            >
+              <span>Search: “{q.trim()}”</span>
+              <span className="text-foreground/60">✕</span>
+            </button>
+          )}
+          {genre && (
+            <button
+              type="button"
+              onClick={() => clearFilter("genre")}
+              className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 hover:bg-muted/80"
+            >
+              <span>
+                Genre:{" "}
+                {genres.find((g) => g.slug === genre)?.name ?? genre}
+              </span>
+              <span className="text-foreground/60">✕</span>
+            </button>
+          )}
+          {from && (
+            <button
+              type="button"
+              onClick={() => clearFilter("from")}
+              className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 hover:bg-muted/80"
+            >
+              <span>From: {from}</span>
+              <span className="text-foreground/60">✕</span>
+            </button>
+          )}
+          {to && (
+            <button
+              type="button"
+              onClick={() => clearFilter("to")}
+              className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 hover:bg-muted/80"
+            >
+              <span>To: {to}</span>
+              <span className="text-foreground/60">✕</span>
+            </button>
+          )}
         </div>
       </form>
 
       {/* Results */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className={gridClasses}>
         {books.data.map((b) => (
-          <Link
+          <InertiaLink
             key={b.id}
             href={`/books/${b.id}`}
-            className="rounded-lg border bg-white p-4 block hover:shadow"
+            className={`rounded-lg border border-border bg-card ${cardPadding} block hover:shadow-sm hover:bg-card/80 transition-colors`}
           >
-            <div className="mb-3 aspect-[3/4] w-full overflow-hidden rounded bg-gray-100 flex items-center justify-center">
-              {b.cover_url ? (
-                <img
-                  src={b.cover_url}
-                  alt={`${b.title} cover`}
-                  className="h-full w-full object-contain"
-                />
-              ) : (
-                <span className="text-[11px] text-gray-500 px-2 text-center">
-                  No cover
-                </span>
-              )}
+            <div className="mb-2 flex items-center justify-center">
+              <div className={`w-full overflow-hidden rounded bg-muted flex items-center justify-center ${imgHeight}`}>
+                {b.cover_url ? (
+                  <img
+                    src={b.cover_url}
+                    alt={`${b.title} cover`}
+                    className="h-full w-full object-contain"
+                  />
+                ) : (
+                  <span className="text-[11px] text-foreground/60 px-2 text-center">
+                    No cover
+                  </span>
+                )}
+              </div>
             </div>
 
-            <h3 className="font-semibold">{b.title}</h3>
-            <p className="text-sm text-gray-600">
+            <h3 className={titleClass}>{b.title}</h3>
+            <p className={`${metaClass} text-foreground/70`}>
               {b.author} · {b.genre}
             </p>
-            <p className="text-xs text-gray-500">
+            <p className={`${metaClass} text-foreground/50 mt-1`}>
               {b.released_at ? new Date(b.released_at).getFullYear() : "—"}
             </p>
-          </Link>
+          </InertiaLink>
         ))}
       </div>
 
@@ -150,10 +307,14 @@ export default function Catalog({ books, genres, filters }: Props) {
           <a
             key={i}
             href={l.url ?? "#"}
-            className={`rounded px-3 py-1 text-sm ring-1 ring-gray-300 ${l.active ? "bg-gray-200" : "hover:bg-gray-100"}`}
+            className={`rounded px-3 py-1 text-sm ring-1 ring-border ${
+              l.active ? "bg-muted" : "hover:bg-muted/80"
+            }`}
             dangerouslySetInnerHTML={{ __html: l.label }}
             aria-disabled={!l.url}
-            onClick={(e) => { if (!l.url) e.preventDefault(); }}
+            onClick={(e) => {
+              if (!l.url) e.preventDefault();
+            }}
           />
         ))}
       </nav>

@@ -122,7 +122,6 @@ export default function PrivateClubs({ clubs }: Props) {
     <AppLayout>
       <div className="mb-4">
         <h1 className="text-2xl font-semibold">Your Clubs</h1>
-        <p className="text-sm text-gray-600">Private chats you own or joined.</p>
       </div>
 
       {flash?.success && (

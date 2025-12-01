@@ -58,12 +58,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
                 <span className="hidden sm:inline text-foreground/80">
                   Hi, {user.name}
                 </span>
-                <Link
-                  href="/profile"
-                  className="rounded px-3 py-1 bg-card border border-border hover:bg-card/80"
-                >
-                  Profile
-                </Link>
+                
                 <Link
                   href="/logout"
                   method="post"
