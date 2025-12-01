@@ -69,6 +69,11 @@ return [
             'driver' => 'database',
             'table' => 'users',
         ],
+        // added for password resets, idk how else to do this without eloquent
+        'eloquent_users' => [
+        'driver' => 'eloquent',
+        'model'  => App\Models\User::class,
+        ],
     ],
 
     /*
@@ -92,7 +97,7 @@ return [
 
     'passwords' => [
         'users' => [
-            'provider' => 'users',
+            'provider' => 'eloquent_users',
             'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
             'expire' => 60,
             'throttle' => 60,

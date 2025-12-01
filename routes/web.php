@@ -13,6 +13,7 @@ use Laravel\Socialite\Facades\Socialite;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\ProfileController;
 
 // make the auto tests happy
 Route::get('/dashboard', function () {
@@ -75,6 +76,15 @@ Route::middleware('auth', 'not-banned')->group(function () {
 
     Route::post('/books/submit', [BookSubmissionController::class, 'store'])
         ->name('books.submit.store');
+
+    Route::patch('/profile', [ProfileController::class, 'update'])
+        ->name('profile.update');
+
+    Route::patch('/profile/password', [ProfileController::class, 'updatePassword'])
+        ->name('profile.password.update');
+
+    Route::delete('/profile', [ProfileController::class, 'destroy'])
+        ->name('profile.destroy');
     
 });
 
