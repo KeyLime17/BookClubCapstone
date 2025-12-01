@@ -1,0 +1,4 @@
+Credentials if you want to test the admin permissions
+
+admin@example.com
+Password123!
