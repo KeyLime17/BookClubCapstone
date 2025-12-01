@@ -48,8 +48,12 @@ it('logs in with valid credentials', function () {
     ]);
 
     $response->assertRedirect();
-    $this->assertAuthenticatedAs($user);
+
+    $this->assertTrue(auth()->check(), 'Expected an authenticated user.');
+    $this->assertSame($user->id, auth()->id(), 'Logged-in user ID does not match.');
 });
+
+
 
 
 it('fails login with wrong password', function () {
