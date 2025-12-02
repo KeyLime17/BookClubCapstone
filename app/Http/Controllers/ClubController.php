@@ -7,9 +7,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class ClubController extends Controller
 {
+    use AuthorizesRequests;
     /**
      * List clubs.
      * By default returns only public (global) clubs.
@@ -172,7 +174,7 @@ class ClubController extends Controller
     /**
      * Rename a club
      */
-    public function updateName(\App\Models\Club $club, \Illuminate\Http\Request $request)
+    public function updateName(Club $club, Request $request)
     {
         // Only owner can rename; reuse your policy:
         $this->authorize('delete', $club); // or create a dedicated 'update' policy

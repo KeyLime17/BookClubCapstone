@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import AppLayout from '@/layouts/AppLayout';
-import { Link, usePage } from '@inertiajs/react';
+import { Link, usePage, router } from '@inertiajs/react';
 
 type Owner = { id: number; name: string };
 type Club = {
@@ -22,10 +22,6 @@ export default function PrivateClubs({ clubs }: Props) {
   const authUserId = page.props?.auth?.user?.id as number | undefined;
   const flash = page.props?.flash as { success?: string; error?: string } | undefined;
 
-  const token =
-    (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content ||
-    '';
-
   const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
 
@@ -37,32 +33,25 @@ export default function PrivateClubs({ clubs }: Props) {
   const isOwner = (c: Club) =>
     !c.is_public && authUserId != null && c.owner_id === authUserId;
 
-  const handleDelete = async (club: Club) => {
+  // --- DELETE CLUB (owner only) via Inertia ---
+  const handleDelete = (club: Club) => {
     if (!confirm(`Delete "${club.name}"? This will remove all messages and members.`)) {
       return;
     }
-    try {
-      setBusyId(club.id);
-      const resp = await fetch(`/clubs/${club.id}`, {
-        method: 'DELETE',
-        headers: {
-          'X-CSRF-TOKEN': token,
-          Accept: 'application/json',
-        },
-        credentials: 'include',
-      });
-      if (!resp.ok) {
-        const txt = await resp.text();
-        alert(`Delete failed: ${txt || resp.status}`);
-        return;
-      }
-      window.location.reload();
-    } catch (e) {
-      console.error('Delete error:', e);
-      alert('Network or server error while deleting the club.');
-    } finally {
-      setBusyId(null);
-    }
+
+    setBusyId(club.id);
+    setMenuOpenId(null);
+
+    router.delete(`/clubs/${club.id}`, {
+      preserveScroll: true,
+      onError: (errors) => {
+        console.error('Delete error:', errors);
+        alert('Could not delete the club.');
+      },
+      onFinish: () => {
+        setBusyId(null);
+      },
+    });
   };
 
   const openRename = (club: Club) => {
@@ -78,9 +67,11 @@ export default function PrivateClubs({ clubs }: Props) {
     setRenameError(null);
   };
 
-  const submitRename = async (club: Club, e: React.FormEvent) => {
+  // --- RENAME CLUB (owner only) via Inertia PATCH ---
+  const submitRename = (club: Club, e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = editingName.trim();
+
     if (!trimmed) {
       setRenameError('Name cannot be empty.');
       return;
@@ -90,32 +81,46 @@ export default function PrivateClubs({ clubs }: Props) {
       return;
     }
 
-    try {
-      setBusyId(club.id);
-      setRenameError(null);
-      const resp = await fetch(`/clubs/${club.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': token,
-          Accept: 'application/json',
+    setBusyId(club.id);
+    setRenameError(null);
+
+    router.patch(
+      `/clubs/${club.id}`,
+      { name: trimmed },
+      {
+        preserveScroll: true,
+        onError: (errors: any) => {
+          console.error('Rename error:', errors);
+          // You don't have validation errors wired here, so just show generic
+          setRenameError('Could not rename the club.');
         },
-        credentials: 'include',
-        body: JSON.stringify({ name: trimmed }),
-      });
-      if (!resp.ok) {
-        const txt = await resp.text();
-        setRenameError(txt || `Rename failed (${resp.status})`);
-        return;
+        onSuccess: () => {
+          // server should send back updated clubs via Inertia props
+          cancelRename();
+        },
+        onFinish: () => {
+          setBusyId(null);
+        },
       }
-      // simple: reload to see new name
-      window.location.reload();
-    } catch (err) {
-      console.error('Rename error:', err);
-      setRenameError('Network or server error while renaming the club.');
-    } finally {
-      setBusyId(null);
-    }
+    );
+  };
+
+  // --- LEAVE CLUB (non-owner) via Inertia DELETE ---
+  const handleLeave = (club: Club) => {
+    if (!confirm('Leave this club?')) return;
+
+    setBusyId(club.id);
+
+    router.delete(`/clubs/${club.id}/leave`, {
+      preserveScroll: true,
+      onError: (errors) => {
+        console.error('Leave error:', errors);
+        alert('Could not leave the club.');
+      },
+      onFinish: () => {
+        setBusyId(null);
+      },
+    });
   };
 
   return (
@@ -186,24 +191,16 @@ export default function PrivateClubs({ clubs }: Props) {
                       Open chat
                     </Link>
 
-                    {/* Non-owner: simple Leave button */}
+                    {/* Non-owner: Leave button (private only) */}
                     {!c.is_public && !owner && (
-                      <form
-                        method="post"
-                        action={`/clubs/${c.id}/leave`}
-                        onSubmit={(e) => {
-                          if (!confirm('Leave this club?')) e.preventDefault();
-                        }}
+                      <button
+                        type="button"
+                        onClick={() => handleLeave(c)}
+                        className="text-sm px-3 py-1.5 rounded border hover:bg-gray-50 disabled:opacity-60"
+                        disabled={isBusy}
                       >
-                        <input type="hidden" name="_token" value={token} />
-                        <input type="hidden" name="_method" value="DELETE" />
-                        <button
-                          className="text-sm px-3 py-1.5 rounded border hover:bg-gray-50"
-                          type="submit"
-                        >
-                          Leave
-                        </button>
-                      </form>
+                        Leave
+                      </button>
                     )}
 
                     {/* Owner: 3-dot menu (rename/delete) */}
@@ -216,6 +213,7 @@ export default function PrivateClubs({ clubs }: Props) {
                           }
                           className="h-8 w-8 flex items-center justify-center rounded-full border hover:bg-gray-50 text-gray-600"
                           aria-label="Club options"
+                          disabled={isBusy}
                         >
                           ⋮
                         </button>
@@ -233,10 +231,7 @@ export default function PrivateClubs({ clubs }: Props) {
                             <button
                               type="button"
                               className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-60"
-                              onClick={() => {
-                                setMenuOpenId(null);
-                                void handleDelete(c);
-                              }}
+                              onClick={() => handleDelete(c)}
                               disabled={isBusy}
                             >
                               Delete

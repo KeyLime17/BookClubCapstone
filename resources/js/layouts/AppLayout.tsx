@@ -8,6 +8,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
     | undefined;
 
   const [profileOpen, setProfileOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   // local form state for modal
   const [name, setName] = useState(user?.name ?? "");
@@ -23,11 +24,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
 
   const submitProfile = (e: React.FormEvent) => {
     e.preventDefault();
-    router.patch(
-      "/profile",
-      { name, email },
-      { preserveScroll: true }
-    );
+    router.patch("/profile", { name, email }, { preserveScroll: true });
   };
 
   const submitPassword = (e: React.FormEvent) => {
@@ -65,16 +62,32 @@ export default function AppLayout({ children }: PropsWithChildren) {
     });
   };
 
+  const closeMobileNav = () => setMobileNavOpen(false);
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b bg-card/80 backdrop-blur">
         <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           {/* Left side: brand + nav */}
           <div className="flex items-center gap-4 sm:gap-6">
-            <Link href="/" className="text-lg font-semibold">
+            {/* Mobile: BookClub is a toggle */}
+            <button
+              type="button"
+              className="sm:hidden text-lg font-semibold"
+              onClick={() => setMobileNavOpen((v) => !v)}
+            >
+              BookClub
+            </button>
+
+            {/* Desktop: BookClub is a normal link */}
+            <Link
+              href="/"
+              className="hidden sm:inline text-lg font-semibold"
+            >
               BookClub
             </Link>
 
+            {/* Desktop nav links */}
             <div className="hidden sm:flex items-center gap-4 text-sm">
               <Link href="/" className="hover:underline">
                 Home
@@ -87,10 +100,14 @@ export default function AppLayout({ children }: PropsWithChildren) {
               </Link>
 
               {!!user?.is_admin && (
-              <>
-                <Link href="/review" className="hover:underline">Review</Link>
-                <Link href="/moderation" className="hover:underline">Moderation</Link>
-              </>
+                <>
+                  <Link href="/review" className="hover:underline">
+                    Review
+                  </Link>
+                  <Link href="/moderation" className="hover:underline">
+                    Moderation
+                  </Link>
+                </>
               )}
             </div>
           </div>
@@ -138,6 +155,54 @@ export default function AppLayout({ children }: PropsWithChildren) {
             )}
           </div>
         </nav>
+
+        {/* Mobile dropdown nav (under header) */}
+        {mobileNavOpen && (
+          <div className="sm:hidden border-t border-border bg-card/95">
+            <div className="mx-auto max-w-6xl px-4 py-3 flex flex-col gap-2 text-sm">
+              <Link
+                href="/"
+                className="py-1 hover:underline"
+                onClick={closeMobileNav}
+              >
+                Home
+              </Link>
+              <Link
+                href="/catalog"
+                className="py-1 hover:underline"
+                onClick={closeMobileNav}
+              >
+                Catalog
+              </Link>
+              <Link
+                href="/clubs/private"
+                className="py-1 hover:underline"
+                onClick={closeMobileNav}
+              >
+                Private Clubs
+              </Link>
+
+              {!!user?.is_admin && (
+                <>
+                  <Link
+                    href="/review"
+                    className="py-1 hover:underline"
+                    onClick={closeMobileNav}
+                  >
+                    Review
+                  </Link>
+                  <Link
+                    href="/moderation"
+                    className="py-1 hover:underline"
+                    onClick={closeMobileNav}
+                  >
+                    Moderation
+                  </Link>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
