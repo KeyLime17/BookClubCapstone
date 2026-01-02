@@ -33,7 +33,7 @@ class BookSubmissionController extends Controller
         $imagePath = null;
         if ($request->hasFile('image')) {
             $imagePath = $request->file('image')
-                ->store('book_covers', 'public'); // storage/app/public/book_covers
+                ->store('book_covers', 's3'); // storage/app/public/book_covers
         }
 
         BookSubmission::create([
@@ -99,9 +99,9 @@ class BookSubmissionController extends Controller
 
             // Only set cover_url if the file actually exists on the public disk
 
-            'cover_url' => ($submission->image_path && \Storage::disk('public')->exists($submission->image_path))
-                ? \Storage::url($submission->image_path) // returns /storage/
-                : null,
+            'cover_url' => $submission->image_path 
+            ? Storage::disk('s3')->url($submission->image_path)
+            : null,
         ]);
 
         $submission->status      = 'approved';
