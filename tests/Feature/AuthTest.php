@@ -14,7 +14,7 @@ it('registers a new user', function () {
     ];
 
     $this->post('/register', $payload)
-        ->assertRedirect('/') 
+        ->assertRedirect('/')        // your app redirects to home after register
         ->assertSessionHasNoErrors();
 
     $this->assertDatabaseHas('users', [
@@ -36,9 +36,8 @@ it('rejects duplicate email on registration', function () {
         ->assertSessionHasErrors('email');
 });
 
-
 it('logs in with valid credentials', function () {
-    $user = \App\Models\User::factory()->create([
+    $user = User::factory()->create([
         'password' => bcrypt('Password123!'),
     ]);
 
@@ -47,14 +46,12 @@ it('logs in with valid credentials', function () {
         'password' => 'Password123!',
     ]);
 
+    // You redirect somewhere (dashboard or home), we just assert *a* redirect
     $response->assertRedirect();
 
     $this->assertTrue(auth()->check(), 'Expected an authenticated user.');
     $this->assertSame($user->id, auth()->id(), 'Logged-in user ID does not match.');
 });
-
-
-
 
 it('fails login with wrong password', function () {
     $user = User::factory()->create([

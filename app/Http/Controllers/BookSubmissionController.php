@@ -82,54 +82,52 @@ class BookSubmissionController extends Controller
 
 
     public function approve(Request $request, BookSubmission $submission)
-    {
-        $data = $request->validate([
-            'description' => 'nullable|string',
-            'released_at' => 'nullable|date',
-            'genre_id'    => 'required|exists:genres,id',
+{
+    $data = $request->validate([
+        'description' => 'nullable|string',
+        'released_at' => 'nullable|date',
+        'genre_id'    => 'required|exists:genres,id',
+    ]);
+
+    DB::transaction(function () use ($submission, $data) {
+        $book = Book::create([
+            'title'       => $submission->title,
+            'author'      => $submission->author,
+            'genre_id'    => $data['genre_id'],
+            'description' => $data['description'] ?? null,
+            'released_at' => $data['released_at'] ?? null,
+
+            // Only set cover_url if the file actually exists on the public disk
+
+            'cover_url' => ($submission->image_path && \Storage::disk('public')->exists($submission->image_path))
+                ? \Storage::url($submission->image_path) // returns /storage/
+                : null,
         ]);
 
-        DB::transaction(function () use ($submission, $data) {
-            // 1. Create the Book record
-            $book = Book::create([
-                'title'       => $submission->title,
-                'author'      => $submission->author,
-                'genre_id'    => $data['genre_id'],
-                'description' => $data['description'] ?? null,
-                'released_at' => $data['released_at'] ?? null,
-                // store a URL/path consistent with how catalog expects it
-                'cover_url'   => $submission->image_path
-                    ? '/storage/' . $submission->image_path
-                    : null,
+        $submission->status      = 'approved';
+        $submission->reviewer_id = Auth::id();
+        $submission->reviewed_at = now();
+        $submission->save();
+
+        $exists = Club::where('book_id', $book->id)
+            ->where('is_public', true)
+            ->exists();
+
+        if (!$exists) {
+            Club::create([
+                'name'      => $book->title . ' - Global Discussion',
+                'book_id'   => $book->id,
+                'is_public' => true,
+                'owner_id'  => null,
             ]);
+        }
+    });
 
-            // 2. Mark submission as approved (and link reviewer)
-            $submission->status      = 'approved';
-            $submission->reviewer_id = Auth::id();
-            $submission->reviewed_at = now();
-            // If you have a book_id column on submissions, you can link it:
-            // $submission->book_id = $book->id;
-            $submission->save();
+    return redirect()
+        ->route('review.index')
+        ->with('success', 'Submission approved, book added to catalog, and global discussion created.');
+}
 
-            // 3. Ensure there is a *public* global discussion club for this book
-            $exists = Club::where('book_id', $book->id)
-                ->where('is_public', true)
-                ->exists();
-
-            if (!$exists) {
-                Club::create([
-                    'name'      => $book->title . ' — Global Discussion',
-                    'book_id'   => $book->id,
-                    'is_public' => true,
-                    'owner_id'  => null,
-                ]);
-            }
-        });
-
-        return redirect()
-            ->route('review.index')
-            ->with('success', 'Submission approved, book added to catalog, and global discussion created.');
-    }
 
 
 
