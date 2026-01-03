@@ -40,7 +40,7 @@ class BookSubmissionController extends Controller
             'user_id'    => Auth::id(),
             'title'      => $data['title'],
             'author'     => $data['author'],
-            'image_path' => $imagePath,
+            'image_path' => $imagePath ?: null,
             'link'       => $data['link'] ?? null,
             'status'     => 'pending',
         ]);
