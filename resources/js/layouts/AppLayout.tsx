@@ -1,5 +1,7 @@
 import React, { PropsWithChildren, useState } from "react";
 import { Link, usePage, router } from "@inertiajs/react";
+import NotificationBell from "@/components/NotificationBell";
+
 
 export default function AppLayout({ children }: PropsWithChildren) {
   const page = usePage<any>();
@@ -116,6 +118,9 @@ export default function AppLayout({ children }: PropsWithChildren) {
           <div className="flex items-center gap-3">
             {user ? (
               <>
+                {/* Bell BEFORE username */}
+                <NotificationBell />
+
                 <button
                   type="button"
                   onClick={() => {
@@ -154,6 +159,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
               </>
             )}
           </div>
+
         </nav>
 
         {/* Mobile dropdown nav (under header) */}

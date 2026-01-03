@@ -11,6 +11,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Notifications\SubmissionApproved; 
+use App\Notifications\SubmissionRejected;
+
+
 
 class BookSubmissionController extends Controller
 {
@@ -90,55 +94,58 @@ class BookSubmissionController extends Controller
 
 
     public function approve(Request $request, BookSubmission $submission)
-{
-    $data = $request->validate([
-        'description' => 'nullable|string',
-        'released_at' => 'nullable|date',
-        'genre_id'    => 'required|exists:genres,id',
-    ]);
-
-    DB::transaction(function () use ($submission, $data) {
-        $book = Book::create([
-            'title'       => $submission->title,
-            'author'      => $submission->author,
-            'genre_id'    => $data['genre_id'],
-            'description' => $data['description'] ?? null,
-            'released_at' => $data['released_at'] ?? null,
-            'cover_url' => $submission->image_path 
-            ? Storage::disk('s3')->url($submission->image_path)
-            : null,
+    {
+        $data = $request->validate([
+            'description' => 'nullable|string',
+            'released_at' => 'nullable|date',
+            'genre_id'    => 'required|exists:genres,id',
         ]);
 
-        $submission->status      = 'approved';
-        $submission->reviewer_id = Auth::id();
-        $submission->reviewed_at = now();
-        $submission->save();
-
-        $exists = Club::where('book_id', $book->id)
-            ->where('is_public', true)
-            ->exists();
-
-        if (!$exists) {
-            Club::create([
-                'name'      => $book->title . ' - Global Discussion',
-                'book_id'   => $book->id,
-                'is_public' => true,
-                'owner_id'  => null,
+        DB::transaction(function () use ($submission, $data) {
+            $book = Book::create([
+                'title'       => $submission->title,
+                'author'      => $submission->author,
+                'genre_id'    => $data['genre_id'],
+                'description' => $data['description'] ?? null,
+                'released_at' => $data['released_at'] ?? null,
+                'cover_url'   => $submission->image_path
+                    ? Storage::disk('s3')->url($submission->image_path)
+                    : null,
             ]);
-        }
-    });
 
-    return redirect()
-        ->route('review.index')
-        ->with('success', 'Submission approved, book added to catalog, and global discussion created.');
-}
+            $submission->status      = 'approved';
+            $submission->reviewer_id = Auth::id();
+            $submission->reviewed_at = now();
+            $submission->save();
+
+            $exists = Club::where('book_id', $book->id)
+                ->where('is_public', true)
+                ->exists();
+
+            if (!$exists) {
+                Club::create([
+                    'name'      => $book->title . ' - Global Discussion',
+                    'book_id'   => $book->id,
+                    'is_public' => true,
+                    'owner_id'  => null,
+                ]);
+            }
+        });
+
+        // Notify submitter 
+        $submission->load('user'); 
+        $submission->user->notify(new SubmissionApproved($submission));
+
+        return redirect()
+            ->route('review.index')
+            ->with('success', 'Submission approved, book added to catalog, and global discussion created.');
+    }
 
 
 
 
     public function reject(Request $request, BookSubmission $submission)
     {
-        // description optional on reject – change to 'required' if you want a reason
         $data = $request->validate([
             'description'  => 'nullable|string',
             'release_date' => 'nullable|date',
@@ -152,8 +159,14 @@ class BookSubmissionController extends Controller
             'reviewed_at'  => now(),
         ]);
 
-        return redirect()->route('review.index')
+        // Notify submitter
+        $submission->load('user');
+        $submission->user->notify(new SubmissionRejected($submission));
+
+        return redirect()
+            ->route('review.index')
             ->with('success', 'Submission rejected.');
     }
+
 
 }

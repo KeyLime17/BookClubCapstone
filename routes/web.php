@@ -90,6 +90,7 @@ Route::middleware('auth', 'not-banned')->group(function () {
     
 });
 
+
 // Admin-only review routes
 Route::middleware(['auth', 'admin', 'not-banned'])->group(function () {
     Route::get('/review', [BookSubmissionController::class, 'index'])
@@ -127,9 +128,24 @@ Route::middleware(['auth', 'admin', 'not-banned'])->group(function () {
         ->name('moderation.clear-mute');
 });
 
+// Notifications: mark as read (for bell dropdown)
+Route::middleware(['auth', 'not-banned'])->group(function () {
+    Route::post('/notifications/{id}/read', function (string $id) {
+        $user = auth()->user();
+
+        $notification = $user->notifications()
+            ->where('id', $id)
+            ->firstOrFail();
+
+        $notification->markAsRead();
+
+        return back();
+    })->name('notifications.read');
+});
+
 
 // routes/web.php
-// Home page → renders resources/js/Pages/Home.tsx
+// Home page renders resources/js/Pages/Home.tsx
 
 Route::get('/', function () {
     $limit = 10;

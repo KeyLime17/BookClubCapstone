@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use App\Models\User;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -39,10 +40,9 @@ class HandleInertiaRequests extends Middleware
         return array_merge(parent::share($request), [
             'auth' => [
                 'user' => function () use ($request) {
-                    $u = $request->user();   // GenericUser when using 'database' provider
+                    $u = $request->user();
                     if (!$u) return null;
 
-                    // Map the fields explicitly (avoid ->only() which is Eloquent-specific)
                     return [
                         'id'           => $u->id ?? null,
                         'name'         => $u->name ?? null,
@@ -52,6 +52,25 @@ class HandleInertiaRequests extends Middleware
                         'is_banned'    => $u->is_banned ?? false,
                         'muted_until'  => $u->muted_until ?? null,
                     ];
+                },
+
+                'unreadNotifications' => function () use ($request) {
+                    $u = $request->user();
+                    if (!$u || empty($u->id)) return [];
+
+                    // Re-load as Eloquent model so notifications relationship exists
+                    $user = User::find($u->id);
+                    if (!$user) return [];
+
+                    return $user->unreadNotifications()
+                        ->latest()
+                        ->take(10)
+                        ->get()
+                        ->map(fn ($n) => [
+                            'id'         => $n->id,
+                            'created_at' => $n->created_at,
+                            'data'       => $n->data,
+                        ]);
                 },
             ],
         ]);
