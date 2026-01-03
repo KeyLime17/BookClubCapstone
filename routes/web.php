@@ -15,15 +15,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\ProfileController;
 
-//temp
-Route::post('/debug-upload', function (\Illuminate\Http\Request $request) {
-    return response()->json([
-        'hasFile_image' => $request->hasFile('image'),
-        'file_keys' => array_keys($request->allFiles()),
-        'input_image' => $request->input('image'),
-        'content_type' => $request->header('content-type'),
-    ]);
-});
 
 
 // make the auto tests happy

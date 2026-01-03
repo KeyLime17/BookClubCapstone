@@ -25,8 +25,7 @@ export default function BookSubmit() {
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
 
-    // post('/books/submit', {
-    post('/debug-upload', {
+    post('/books/submit', {
       forceFormData: true,
       onSuccess: () => {
         reset('title', 'author', 'link', 'image');
