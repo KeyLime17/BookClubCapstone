@@ -27,10 +27,11 @@ interface Genre {
 interface PageProps {
   submission: Submission;
   genres: Genre[];
+  imageUrl?: string | null;
 }
 
 export default function ReviewSubmissionDetail(props: PageProps) {
-  const { submission, genres } = props;
+  const { submission, genres, imageUrl } = props
 
   const [description, setDescription] = React.useState<string>('');
   const [releasedAt, setReleasedAt] = React.useState<string>('');
@@ -71,10 +72,6 @@ export default function ReviewSubmissionDetail(props: PageProps) {
       { onFinish: () => setBusy(false) }
     );
   };
-
-  const imageUrl = submission.image_path
-    ? `/storage/${submission.image_path}`
-    : null;
 
   return (
     <AppLayout>

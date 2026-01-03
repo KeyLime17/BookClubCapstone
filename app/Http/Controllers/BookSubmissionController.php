@@ -67,6 +67,7 @@ class BookSubmissionController extends Controller
         ]);
     }
 
+
     public function show(BookSubmission $submission): Response
     {
         $submission->load('user');
@@ -75,11 +76,17 @@ class BookSubmissionController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'slug']);
 
+        $imageUrl = $submission->image_path
+            ? Storage::disk('s3')->url($submission->image_path)
+            : null;
+
         return Inertia::render('ReviewSubmissionDetail', [
             'submission' => $submission,
             'genres'     => $genres,
+            'imageUrl'   => $imageUrl,
         ]);
     }
+
 
 
     public function approve(Request $request, BookSubmission $submission)
