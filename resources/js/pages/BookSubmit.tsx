@@ -1,15 +1,14 @@
 // resources/js/Pages/BookSubmit.tsx
-import React, { FormEvent } from 'react';
+import React, { FormEvent, useRef } from 'react';
 import { Head, useForm, usePage } from '@inertiajs/react';
 import AppLayout from '@/layouts/AppLayout';
 
-
 export default function BookSubmit() {
-    const { flash } = usePage().props as {
-        flash?: {
-            success?: string;
-        };
-    };
+  const { flash } = usePage().props as {
+    flash?: { success?: string };
+  };
+
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const { data, setData, post, processing, errors, reset } = useForm<{
     title: string;
@@ -27,9 +26,11 @@ export default function BookSubmit() {
     e.preventDefault();
 
     post('/books/submit', {
-      forceFormData: true, // needed for file upload
+      forceFormData: true,
       onSuccess: () => {
         reset('title', 'author', 'link', 'image');
+
+        if (fileRef.current) fileRef.current.value = '';
       },
     });
   };
@@ -41,8 +42,8 @@ export default function BookSubmit() {
       <div className="max-w-2xl mx-auto py-8 px-4">
         <h1 className="text-2xl font-semibold mb-4">Submit a Book</h1>
         <p className="text-sm text-gray-600 mb-6">
-          Submit a book that&apos;s missing from the catalog. An admin will review it and
-          add details like description and release date before it goes live.
+          Submit a book that&apos;s missing from the catalog. An admin will review it and add details
+          like description and release date before it goes live.
         </p>
 
         {flash?.success && (
@@ -61,12 +62,10 @@ export default function BookSubmit() {
               type="text"
               className="w-full border rounded px-3 py-2 text-sm"
               value={data.title}
-              onChange={e => setData('title', e.target.value)}
+              onChange={(e) => setData('title', e.target.value)}
               required
             />
-            {errors.title && (
-              <p className="text-xs text-red-600 mt-1">{errors.title}</p>
-            )}
+            {errors.title && <p className="text-xs text-red-600 mt-1">{errors.title}</p>}
           </div>
 
           <div>
@@ -78,12 +77,10 @@ export default function BookSubmit() {
               type="text"
               className="w-full border rounded px-3 py-2 text-sm"
               value={data.author}
-              onChange={e => setData('author', e.target.value)}
+              onChange={(e) => setData('author', e.target.value)}
               required
             />
-            {errors.author && (
-              <p className="text-xs text-red-600 mt-1">{errors.author}</p>
-            )}
+            {errors.author && <p className="text-xs text-red-600 mt-1">{errors.author}</p>}
           </div>
 
           <div>
@@ -96,11 +93,9 @@ export default function BookSubmit() {
               placeholder="https://example.com/book-page"
               className="w-full border rounded px-3 py-2 text-sm"
               value={data.link}
-              onChange={e => setData('link', e.target.value)}
+              onChange={(e) => setData('link', e.target.value)}
             />
-            {errors.link && (
-              <p className="text-xs text-red-600 mt-1">{errors.link}</p>
-            )}
+            {errors.link && <p className="text-xs text-red-600 mt-1">{errors.link}</p>}
           </div>
 
           <div>
@@ -108,18 +103,14 @@ export default function BookSubmit() {
               Book Cover (optional)
             </label>
             <input
+              ref={fileRef}
               id="image"
               type="file"
               accept="image/*"
               className="w-full text-sm"
-              onChange={e => {
-                const file = e.target.files?.[0] ?? null;
-                setData('image', file);
-              }}
+              onChange={(e) => setData('image', e.target.files?.[0] ?? null)}
             />
-            {errors.image && (
-              <p className="text-xs text-red-600 mt-1">{errors.image}</p>
-            )}
+            {errors.image && <p className="text-xs text-red-600 mt-1">{errors.image}</p>}
           </div>
 
           <button
