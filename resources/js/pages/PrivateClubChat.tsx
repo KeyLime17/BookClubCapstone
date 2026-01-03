@@ -6,6 +6,14 @@ import ChatBox from '@/components/ChatBox';
 type Club = { id: number; name: string; book_id: number; is_public: boolean };
 type Props = { club: Club };
 
+
+function getCookie(name: string): string | null {
+  const match = document.cookie.match(
+    new RegExp('(?:^|; )' + name.replace(/([$?*|{}\]\\^])/g, '\\$1') + '=([^;]*)')
+  );
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 function InvitePanel({ clubId }: { clubId: number }) {
   const [q, setQ] = React.useState('');
   const [list, setList] = React.useState<{ id: number; name: string }[]>([]);
@@ -17,11 +25,28 @@ function InvitePanel({ clubId }: { clubId: number }) {
   const runSearch = async (val: string) => {
     setError(null);
     if (!val.trim()) { setList([]); return; }
+
     setSearching(true);
     try {
-      const resp = await fetch(`/users/search?q=${encodeURIComponent(val)}`, { credentials: 'include' });
-      if (resp.status === 401) { setError('Please log in to search users.'); setList([]); return; }
-      if (!resp.ok) { setError('Search failed.'); setList([]); return; }
+      const resp = await fetch(`/users/search?q=${encodeURIComponent(val)}`, {
+        credentials: 'include',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+      });
+
+      if (resp.status === 401) {
+        setError('Please log in to search users.');
+        setList([]);
+        return;
+      }
+
+      if (!resp.ok) {
+        setError('Search failed.');
+        setList([]);
+        return;
+      }
+
       const data = await resp.json();
       setList(Array.isArray(data) ? data : []);
     } catch {
@@ -41,25 +66,32 @@ function InvitePanel({ clubId }: { clubId: number }) {
   const invite = async (userId: number) => {
     setBusy(true);
     setError(null);
+
     try {
-      const token = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '';
+      const xsrf = getCookie('XSRF-TOKEN') || '';
+
       const resp = await fetch(`/clubs/${clubId}/invite`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token },
         credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-XSRF-TOKEN': xsrf,
+          'X-Requested-With': 'XMLHttpRequest',
+        },
         body: JSON.stringify({ user_id: userId }),
       });
 
       if (resp.status === 403) {
-        const txt = await resp.text();
-        setError('You do not have permission to invite to this club.' + (txt ? ` (${txt})` : ''));
+        setError('You do not have permission to invite to this club.');
         return;
       }
+
       if (resp.status === 422) {
         const j = await resp.json().catch(() => null);
         setError(j?.message ?? 'Validation failed.');
         return;
       }
+
       if (!resp.ok) {
         const txt = await resp.text();
         setError(`Invite failed: ${txt || resp.status}`);
@@ -87,7 +119,9 @@ function InvitePanel({ clubId }: { clubId: number }) {
           placeholder="Type a name to search…"
           className="flex-1 border rounded px-3 py-2"
         />
-        <span className="text-sm text-gray-500">{searching ? 'Searching…' : 'Type to search'}</span>
+        <span className="text-sm text-gray-500">
+          {searching ? 'Searching…' : 'Type to search'}
+        </span>
       </div>
 
       {error && <div className="mt-2 text-sm text-red-600">{error}</div>}
@@ -119,11 +153,9 @@ function InvitePanel({ clubId }: { clubId: number }) {
 export default function PrivateClubChat({ club }: Props) {
   const page = usePage<any>();
   const user = page.props.auth?.user;
+
   const mutedUntil = user?.muted_until ? new Date(user.muted_until) : null;
-  const now = new Date();
-  const isMuted = mutedUntil !== null && mutedUntil > now;
-  const isPublic = club.is_public;
-  const boonName = club.name
+  const isMuted = mutedUntil !== null && mutedUntil > new Date();
 
   return (
     <AppLayout>
@@ -132,11 +164,10 @@ export default function PrivateClubChat({ club }: Props) {
       </div>
 
       <section className="mt-4 space-y-2">
-        {/* Force ChatBox to use the private club id */}
         <ChatBox
           bookId={club.book_id}
-          canPost={!isMuted} 
           clubIdOverride={club.id}
+          canPost={!isMuted}
         />
 
         {isMuted && mutedUntil && (
@@ -146,7 +177,6 @@ export default function PrivateClubChat({ club }: Props) {
         )}
       </section>
 
-      {/* Invite users (owner/mods should be authorized server-side) */}
       <InvitePanel clubId={club.id} />
     </AppLayout>
   );

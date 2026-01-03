@@ -244,23 +244,15 @@ export default function BookPage({ book, avg_rating, ratings_count, my_rating, m
               Go to your private chat
             </a>
           ) : (
-            <form method="post" action={`/books/${book.id}/private-club`}>
-              <input
-                type="hidden"
-                name="_token"
-                value={
-                  (document.querySelector(
-                    'meta[name="csrf-token"]'
-                  ) as HTMLMetaElement)?.content || ""
-                }
-              />
-              <button
-                type="submit"
-                className="text-sm px-3 py-2 rounded border hover:bg-gray-50"
-              >
-                Create a private chat for this book
-              </button>
-            </form>
+            <button
+            type="button"
+            onClick={() =>
+              router.post(`/books/${book.id}/private-club`, {}, { preserveScroll: true, replace: true })
+            }
+            className="text-sm px-3 py-2 rounded border hover:bg-gray-50"
+          >
+            Create a private chat for this book
+          </button>
           ))}
       </section>
     </AppLayout>
