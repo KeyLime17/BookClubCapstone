@@ -48,6 +48,8 @@ class CatalogController extends Controller
             $where[] = "g.slug = ?";
             $bind[]  = $filters['genre'];
         }
+        $from = $filters['from'] ?? null;
+        $to   = $filters['to'] ?? null;
 
         if ($from && $to) {
             if ($from > $to) { [$from, $to] = [$to, $from]; }
