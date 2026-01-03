@@ -31,15 +31,25 @@ export default function BookPage({ book, avg_rating, ratings_count, my_rating, m
 
   // local state for user's rating
   const [mine, setMine] = useState<number | null>(my_rating?.rating ?? null);
+  const [ratingBusy, setRatingBusy] = useState(false);
 
   const submitRating = (value: number) => {
-    setMine(value); // optimistic
+    if (ratingBusy) return;
+
+    setRatingBusy(true);
+    setMine(value); 
+
     router.post(
       `/books/${book.id}/rate`,
-      { rating: value }, 
-      { preserveScroll: true, replace: true }
+      { rating: value },
+      {
+        preserveScroll: true,
+        replace: true,
+        onFinish: () => setRatingBusy(false),
+      }
     );
   };
+
 
   const removeRating = () => {
     setMine(null); // optimistic
@@ -117,13 +127,15 @@ export default function BookPage({ book, avg_rating, ratings_count, my_rating, m
                     const mineFilled = mine != null && val <= mine;
 
                     return (
-                      <button
-                        key={val}
-                        type="button"
-                        aria-label={`Set my rating to ${val}`}
-                        onClick={() => submitRating(val)}
-                        className="h-6 w-6"
-                      >
+                        <button
+                          key={val}
+                          type="button"
+                          disabled={ratingBusy}
+                          aria-label={`Set my rating to ${val}`}
+                          onClick={() => submitRating(val)}
+                          className="h-6 w-6 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+
                         <div className="relative h-full w-full">
                           {/* Base: average rating (yellow) */}
                           <svg
