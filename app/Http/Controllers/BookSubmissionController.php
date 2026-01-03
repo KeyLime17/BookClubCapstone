@@ -104,9 +104,6 @@ class BookSubmissionController extends Controller
             'genre_id'    => $data['genre_id'],
             'description' => $data['description'] ?? null,
             'released_at' => $data['released_at'] ?? null,
-
-            // Only set cover_url if the file actually exists on the public disk
-
             'cover_url' => $submission->image_path 
             ? Storage::disk('s3')->url($submission->image_path)
             : null,

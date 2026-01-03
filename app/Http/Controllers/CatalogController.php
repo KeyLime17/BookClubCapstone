@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Arr;
 use Inertia\Inertia;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\Paginator;
 
 class CatalogController extends Controller
 {
@@ -31,42 +33,76 @@ class CatalogController extends Controller
             ->orderBy('name')
             ->get();
 
-        $query = DB::table('books')
-            ->join('genres','genres.id','=','books.genre_id')
-            ->select(
-                'books.id','books.title','books.author','books.cover_url',
-                'books.released_at','genres.name as genre','genres.slug as genre_slug'
-            );
+        // EVIDENCE OF SQL QUERY USAGE, added it for the most common used spot probably
+        $where = [];
+        $bind  = [];
 
-        if ($filters['q']) {
-            $q = $filters['q'];
-            $query->where(function($qq) use ($q) {
-                $like = '%'.$q.'%';
-                $qq->where('books.title','like',$like)
-                   ->orWhere('books.author','like',$like);
-            });
+        if (!empty($filters['q'])) {
+            $where[] = "(b.title LIKE ? OR b.author LIKE ?)";
+            $like = '%'.$filters['q'].'%';
+            $bind[] = $like;
+            $bind[] = $like;
         }
 
-        if ($filters['genre']) {
-            $query->where('genres.slug', $filters['genre']);
+        if (!empty($filters['genre'])) {
+            $where[] = "g.slug = ?";
+            $bind[]  = $filters['genre'];
         }
 
-        $from = $filters['from'] ?? null;
-        $to   = $filters['to']   ?? null;
         if ($from && $to) {
-            if ($from > $to) { [$from, $to] = [$to, $from]; } 
-            $query->whereBetween('books.released_at', [$from, $to]);
+            if ($from > $to) { [$from, $to] = [$to, $from]; }
+            $where[] = "DATE(b.released_at) BETWEEN ? AND ?";
+            $bind[]  = $from;
+            $bind[]  = $to;
         } elseif ($from) {
-            $query->whereDate('books.released_at', '>=', $from);
+            $where[] = "DATE(b.released_at) >= ?";
+            $bind[]  = $from;
         } elseif ($to) {
-            $query->whereDate('books.released_at', '<=', $to);
+            $where[] = "DATE(b.released_at) <= ?";
+            $bind[]  = $to;
         }
 
-        // 5) sort newest first, paginate, keep query string
-        $books = $query->orderByDesc('books.released_at')
-            ->paginate(12)
-            ->appends(Arr::where($filters, fn($v) => filled($v))) // keep active filters in links
-            ->withQueryString();
+
+        $whereSql = $where ? ("WHERE " . implode(" AND ", $where)) : "";
+        $perPage = 12;
+        $page    = (int) ($validated['page'] ?? Paginator::resolveCurrentPage() ?? 1);
+        if ($page < 1) $page = 1;
+
+        $countRow = DB::selectOne(
+            "SELECT COUNT(*) AS total
+            FROM books b
+            JOIN genres g ON g.id = b.genre_id
+            $whereSql",
+            $bind
+        );
+         $total = (int) ($countRow->total ?? 0);
+
+        // query with limit and offset
+        $offset = ($page - 1) * $perPage;
+
+        $rows = DB::select(
+            "SELECT
+                b.id, b.title, b.author, b.cover_url, b.released_at,
+                g.name AS genre, g.slug AS genre_slug
+            FROM books b
+            JOIN genres g ON g.id = b.genre_id
+            $whereSql
+            ORDER BY b.released_at DESC
+            LIMIT $perPage OFFSET $offset",
+            $bind
+        );
+
+    // Create a paginator for inertia
+        $books = new LengthAwarePaginator(
+            $rows,
+            $total,
+            $perPage,
+            $page,
+            [
+                'path'  => $request->url(),
+                'query' => array_filter($filters, fn($v) => filled($v)),
+            ]
+        );
 
         return Inertia::render('Catalog', [
             'books'   => $books,
