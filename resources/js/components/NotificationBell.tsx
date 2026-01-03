@@ -30,8 +30,11 @@ export default function NotificationBell() {
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
-  
+
+    const [localNotifs, setLocalNotifs] = useState(notifs);
+
     function markRead(id: string) {
+    setLocalNotifs((prev) => prev.filter((n) => n.id !== id));
     router.post(`/notifications/${id}/read`, {}, { preserveScroll: true });
     }
 

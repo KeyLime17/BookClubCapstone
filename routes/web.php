@@ -129,19 +129,20 @@ Route::middleware(['auth', 'admin', 'not-banned'])->group(function () {
 });
 
 // Notifications: mark as read (for bell dropdown)
-Route::middleware(['auth', 'not-banned'])->group(function () {
-    Route::post('/notifications/{id}/read', function (string $id) {
-        $user = auth()->user();
+Route::post('/notifications/{id}/read', function (string $id) {
+    $auth = auth()->user();
+    abort_unless($auth && !empty($auth->id), 401);
 
-        $notification = $user->notifications()
-            ->where('id', $id)
-            ->firstOrFail();
+    $user = User::findOrFail($auth->id);
 
-        $notification->markAsRead();
+    $notification = $user->notifications()
+        ->where('id', $id)
+        ->firstOrFail();
 
-        return back();
-    })->name('notifications.read');
-});
+    $notification->markAsRead();
+
+    return back();
+})->middleware(['auth', 'not-banned'])->name('notifications.read');
 
 
 // routes/web.php
