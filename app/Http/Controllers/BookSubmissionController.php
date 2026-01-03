@@ -33,7 +33,7 @@ class BookSubmissionController extends Controller
         $imagePath = null;
         if ($request->hasFile('image')) {
             $imagePath = $request->file('image')
-                ->store('book_covers', 's3'); // storage/app/public/book_covers
+                ->storePublicly('book_covers', 's3'); // storage/app/public/book_covers
         }
         
 
