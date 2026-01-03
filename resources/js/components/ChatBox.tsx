@@ -17,6 +17,14 @@ type Props = {
   clubIdOverride?: number;
 };
 
+/** Read cookie value safely */
+function getCookie(name: string): string | null {
+  const match = document.cookie.match(
+    new RegExp('(?:^|; )' + name.replace(/([$?*|{}\]\\^])/g, '\\$1') + '=([^;]*)')
+  );
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Props) {
   const page = usePage<any>();
   const authUser = page.props.auth?.user as
@@ -57,7 +65,10 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Pro
       try {
         const resp = await fetch(
           `/api/clubs?only_public=1&book_id=${bookId}`,
-          { credentials: 'include' }
+          {
+            credentials: 'include',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          }
         );
         const json = await safeJson(resp);
         if (!resp.ok) throw new Error(`Clubs query failed (${resp.status})`);
@@ -91,6 +102,7 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Pro
       try {
         const resp = await fetch(`${messagesBase}/clubs/${clubId}/messages`, {
           credentials: 'include',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
         });
         const json = await safeJson(resp);
         if (!resp.ok) throw new Error(`Messages fetch failed (${resp.status})`);
@@ -121,6 +133,7 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Pro
       try {
         const resp = await fetch(`${messagesBase}/clubs/${clubId}/messages`, {
           credentials: 'include',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
         });
         const json = await safeJson(resp);
         if (!resp.ok) throw new Error(`Messages poll failed (${resp.status})`);
@@ -154,9 +167,8 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Pro
     e.preventDefault();
     if (!clubId || !body.trim() || !effectiveCanPost) return;
 
-    const token =
-      (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null)
-        ?.content || '';
+    // Use XSRF cookie (stays in sync across fast user switching)
+    const xsrf = getCookie('XSRF-TOKEN') || '';
 
     try {
       const resp = await fetch(`/clubs/${clubId}/messages`, {
@@ -165,9 +177,9 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Pro
           'Content-Type': 'application/json',
           'Accept': 'application/json',
           'X-Requested-With': 'XMLHttpRequest',
-          'X-CSRF-TOKEN': token,
+          'X-XSRF-TOKEN': xsrf,
         },
-        credentials: 'same-origin', // 👈 session cookie goes with the request
+        credentials: 'include',
         body: JSON.stringify({ body }),
       });
 
@@ -196,7 +208,6 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Pro
       alert('Network or server error.');
     }
   };
-
 
   return (
     <div className="w-full border rounded-xl p-3 flex flex-col gap-3">
