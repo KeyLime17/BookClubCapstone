@@ -35,16 +35,7 @@ class BookSubmissionController extends Controller
             $imagePath = $request->file('image')
                 ->store('book_covers', 's3'); // storage/app/public/book_covers
         }
-        if ($request->hasFile('image')) {
-            $imagePath = $request->file('image')->store('book_covers', 's3');
-        }
-
-        return response()->json([
-            'hasFile' => $request->hasFile('image'),
-            'stored_path' => $imagePath,
-            'exists_on_s3' => $imagePath ? \Storage::disk('s3')->exists($imagePath) : false,
-        ]);
-
+        
 
         BookSubmission::create([
             'user_id'    => Auth::id(),
