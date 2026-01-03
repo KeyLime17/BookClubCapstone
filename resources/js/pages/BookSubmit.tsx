@@ -1,56 +1,123 @@
-import { useRef, useState } from "react";
-import { Upload, Image as ImageIcon, X } from "lucide-react";
+// resources/js/Pages/BookSubmit.tsx
+import React, { FormEvent } from "react";
+import { Head, useForm, usePage } from "@inertiajs/react";
+import AppLayout from "@/layouts/AppLayout";
+import CoverUpload from "@/components/CoverUpload";
 
-export default function CoverUpload({ onFileSelected }: { onFileSelected: (f: File | null) => void }) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const [fileName, setFileName] = useState<string | null>(null);
+export default function BookSubmit() {
+  const { flash } = usePage().props as {
+    flash?: {
+      success?: string;
+    };
+  };
 
-  function pickFile() {
-    inputRef.current?.click();
-  }
+  const { data, setData, post, processing, errors, reset } = useForm<{
+    title: string;
+    author: string;
+    link: string;
+    image: File | null;
+  }>({
+    title: "",
+    author: "",
+    link: "",
+    image: null,
+  });
 
-  function onChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0] ?? null;
-    setFileName(f ? f.name : null);
-    onFileSelected(f);
-  }
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
 
-  function clear() {
-    if (inputRef.current) inputRef.current.value = "";
-    setFileName(null);
-    onFileSelected(null);
-  }
+    post("/books/submit", {
+      forceFormData: true, // needed for file upload
+      onSuccess: () => {
+        reset("title", "author", "link", "image");
+      },
+    });
+  };
 
   return (
-    <div className="space-y-2">
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={onChange}
-      />
+    <AppLayout>
+      <Head title="Submit a Book" />
 
-      <button
-        type="button"
-        onClick={pickFile}
-        className="w-full flex items-center justify-center gap-2 rounded-lg border px-4 py-3 hover:bg-gray-50"
-      >
-        <Upload size={18} />
-        <span>{fileName ? "Change cover image" : "Upload cover image"}</span>
-      </button>
+      <div className="max-w-2xl mx-auto py-8 px-4">
+        <h1 className="text-2xl font-semibold mb-4">Submit a Book</h1>
+        <p className="text-sm text-gray-600 mb-6">
+          Submit a book that&apos;s missing from the catalog. An admin will review it and
+          add details like description and release date before it goes live.
+        </p>
 
-      {fileName && (
-        <div className="flex items-center justify-between rounded-md bg-gray-50 px-3 py-2 text-sm">
-          <div className="flex items-center gap-2">
-            <ImageIcon size={16} />
-            <span className="truncate">{fileName}</span>
+        {flash?.success && (
+          <div className="mb-4 rounded-md bg-green-100 border border-green-300 px-4 py-2 text-sm text-green-800">
+            {flash.success}
           </div>
-          <button type="button" onClick={clear} className="hover:opacity-70">
-            <X size={16} />
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4" encType="multipart/form-data">
+          <div>
+            <label className="block text-sm font-medium mb-1" htmlFor="title">
+              Book Title<span className="text-red-500">*</span>
+            </label>
+            <input
+              id="title"
+              type="text"
+              className="w-full border rounded px-3 py-2 text-sm"
+              value={data.title}
+              onChange={(e) => setData("title", e.target.value)}
+              required
+            />
+            {errors.title && <p className="text-xs text-red-600 mt-1">{errors.title}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1" htmlFor="author">
+              Author<span className="text-red-500">*</span>
+            </label>
+            <input
+              id="author"
+              type="text"
+              className="w-full border rounded px-3 py-2 text-sm"
+              value={data.author}
+              onChange={(e) => setData("author", e.target.value)}
+              required
+            />
+            {errors.author && <p className="text-xs text-red-600 mt-1">{errors.author}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1" htmlFor="link">
+              Reference Link (optional)
+            </label>
+            <input
+              id="link"
+              type="url"
+              placeholder="https://example.com/book-page"
+              className="w-full border rounded px-3 py-2 text-sm"
+              value={data.link}
+              onChange={(e) => setData("link", e.target.value)}
+            />
+            {errors.link && <p className="text-xs text-red-600 mt-1">{errors.link}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Book Cover (optional)
+            </label>
+
+            <CoverUpload
+              onFileSelected={(file) => setData("image", file)}
+            />
+
+            {errors.image && <p className="text-xs text-red-600 mt-1">{errors.image}</p>}
+          </div>
+
+          <button
+            type="submit"
+            disabled={processing}
+            className="inline-flex items-center px-4 py-2 rounded bg-blue-600 text-white text-sm font-medium disabled:opacity-60"
+          >
+            {processing ? "Submitting…" : "Submit Book"}
           </button>
-        </div>
-      )}
-    </div>
+        </form>
+      </div>
+    </AppLayout>
   );
 }
