@@ -1,6 +1,6 @@
 import AppLayout from "@/layouts/AppLayout";
 import { router, Link as InertiaLink } from "@inertiajs/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Book = {
   id: number;
@@ -51,7 +51,21 @@ export default function Catalog({ books, genres, filters }: Props) {
   const [to, setTo] = useState(filters.to ?? "");
 
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [genresOpen, setGenresOpen] = useState(false);
+
   const [viewMode, setViewMode] = useState<ViewMode>("comfortable");
+
+  const genreMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (!genresOpen) return;
+      const el = genreMenuRef.current;
+      if (el && !el.contains(e.target as Node)) setGenresOpen(false);
+    };
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [genresOpen]);
 
   // submit filters with GET (Inertia)
   const apply = (e?: React.FormEvent) => {
@@ -82,8 +96,7 @@ export default function Catalog({ books, genres, filters }: Props) {
     if (key === "genres") setSelectedGenres([]);
     if (key === "from") setFrom("");
     if (key === "to") setTo("");
-    // re-run with updated state (next tick so state is updated)
-    setTimeout(() => apply(), 0);
+    apply(); // re-run with updated state
   };
 
   const removeOneGenre = (slug: string) => {
@@ -117,6 +130,13 @@ export default function Catalog({ books, genres, filters }: Props) {
     titleClass = "font-semibold text-xs";
     metaClass = "text-[11px]";
   }
+
+  const selectedLabel =
+    selectedGenres.length === 0
+      ? "All genres"
+      : selectedGenres.length === 1
+      ? genres.find((g) => g.slug === selectedGenres[0])?.name ?? "1 selected"
+      : `${selectedGenres.length} selected`;
 
   return (
     <AppLayout>
@@ -158,17 +178,27 @@ export default function Catalog({ books, genres, filters }: Props) {
           />
 
           <div className="flex items-center gap-2">
+            {/* Filter toggle button */}
             <button
               type="button"
               onClick={() => setFiltersOpen((o) => !o)}
               className="inline-flex items-center gap-1 rounded border border-border bg-card px-3 py-2 text-sm hover:bg-card/80"
             >
-              <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" focusable="false">
-                <path d="M4 5h16l-5.5 7v5l-5 2v-7L4 5z" fill="currentColor" />
+              <svg
+                viewBox="0 0 24 24"
+                className="h-4 w-4"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path
+                  d="M4 5h16l-5.5 7v5l-5 2v-7L4 5z"
+                  fill="currentColor"
+                />
               </svg>
               <span>Filters</span>
             </button>
 
+            {/* Apply button */}
             <button
               type="submit"
               className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
@@ -183,36 +213,62 @@ export default function Catalog({ books, genres, filters }: Props) {
           <div className="rounded border border-border bg-card px-3 py-3 text-sm space-y-3">
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="flex flex-col gap-1 sm:col-span-1">
-                <label className="text-xs font-medium text-foreground/70">Genre</label>
+                <label className="text-xs font-medium text-foreground/70">
+                  Genre
+                </label>
 
-                <div className="rounded border border-border bg-background p-2 max-h-44 overflow-auto">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-foreground/60">
-                      {selectedGenres.length ? `${selectedGenres.length} selected` : "All genres"}
-                    </span>
-                    {selectedGenres.length > 0 && (
-                      <button
-                        type="button"
-                        className="text-xs underline text-foreground/70 hover:text-foreground"
-                        onClick={() => setSelectedGenres([])}
-                      >
-                        Clear
-                      </button>
-                    )}
-                  </div>
+                <div className="relative" ref={genreMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setGenresOpen((o) => !o)}
+                    className="w-full rounded border border-border bg-background px-3 py-2 text-sm flex items-center justify-between hover:bg-muted/40"
+                    aria-expanded={genresOpen}
+                  >
+                    <span className="truncate">{selectedLabel}</span>
+                    <span className="ml-2 text-foreground/60">▾</span>
+                  </button>
 
-                  <div className="space-y-1">
-                    {genres.map((g) => (
-                      <label key={g.id} className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={selectedGenres.includes(g.slug)}
-                          onChange={() => toggleGenre(g.slug)}
-                        />
-                        <span>{g.name}</span>
-                      </label>
-                    ))}
-                  </div>
+                  {genresOpen && (
+                    <div className="absolute z-20 mt-2 w-full rounded border border-border bg-background shadow-lg">
+                      <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+                        <span className="text-xs text-foreground/60">
+                          {selectedGenres.length ? `${selectedGenres.length} selected` : "All genres"}
+                        </span>
+                        {selectedGenres.length > 0 && (
+                          <button
+                            type="button"
+                            className="text-xs underline text-foreground/70 hover:text-foreground"
+                            onClick={() => setSelectedGenres([])}
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="max-h-56 overflow-auto p-2 space-y-1">
+                        {genres.map((g) => (
+                          <label key={g.id} className="flex items-center gap-2 text-sm px-2 py-1 rounded hover:bg-muted/40">
+                            <input
+                              type="checkbox"
+                              checked={selectedGenres.includes(g.slug)}
+                              onChange={() => toggleGenre(g.slug)}
+                            />
+                            <span>{g.name}</span>
+                          </label>
+                        ))}
+                      </div>
+
+                      <div className="px-3 py-2 border-t border-border flex justify-end">
+                        <button
+                          type="button"
+                          className="text-xs rounded border border-border px-3 py-1 hover:bg-muted/40"
+                          onClick={() => setGenresOpen(false)}
+                        >
+                          Done
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
