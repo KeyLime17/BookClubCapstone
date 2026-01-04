@@ -68,7 +68,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b bg-card/80 backdrop-blur">
+      <header className="relative z-40 border-b bg-card/80 backdrop-blur">
         <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           {/* Left side: brand + nav */}
           <div className="flex items-center gap-4 sm:gap-6">
@@ -235,7 +235,7 @@ export default function AppLayout({ children }: PropsWithChildren) {
             </div>
 
             {flash.success && (
-              <div className="mb-3 rounded bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+              <div className="mb-3 rounded border border-border bg-card px-3 py-2 text-xs text-foreground">
                 {flash.success}
               </div>
             )}

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { router, usePage } from "@inertiajs/react";
 import { Bell } from "lucide-react";
 
-
 type Notif = {
   id: string;
   created_at?: string;
@@ -16,10 +15,17 @@ type Notif = {
 
 export default function NotificationBell() {
   const { props } = usePage() as any;
-  const notifs: Notif[] = props.auth?.unreadNotifications ?? [];
+  const serverNotifs: Notif[] = props.auth?.unreadNotifications ?? [];
 
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement | null>(null);
+
+  const [localNotifs, setLocalNotifs] = useState<Notif[]>(serverNotifs);
+
+  // keep local in sync when server props change
+  useEffect(() => {
+    setLocalNotifs(serverNotifs);
+  }, [serverNotifs]);
 
   // close when clicking outside
   useEffect(() => {
@@ -31,44 +37,43 @@ export default function NotificationBell() {
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
-    const [localNotifs, setLocalNotifs] = useState(notifs);
-
-    function markRead(id: string) {
+  function markRead(id: string) {
     setLocalNotifs((prev) => prev.filter((n) => n.id !== id));
     router.post(`/notifications/${id}/read`, {}, { preserveScroll: true });
-    }
+  }
 
+  const unreadCount = localNotifs.length;
 
   return (
     <div ref={boxRef} className="relative">
       <button
         type="button"
-        onClick={() => setOpen(v => !v)}
-        className="relative rounded-md p-2 hover:bg-gray-100"
+        onClick={() => setOpen((v) => !v)}
+        className="relative rounded-md p-2 hover:bg-muted/40"
         aria-label="Notifications"
       >
         <Bell size={20} />
-        {notifs.length > 0 && (
+        {unreadCount > 0 && (
           <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-80 overflow-hidden rounded-lg border bg-white shadow-lg z-50">
-          <div className="px-4 py-2 text-sm font-semibold border-b">
+        <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-border bg-card text-foreground shadow-xl z-[9999]">
+          <div className="px-4 py-2 text-sm font-semibold border-b border-border">
             Notifications
           </div>
 
-          {notifs.length === 0 ? (
-            <div className="p-4 text-sm text-gray-500">No new notifications</div>
+          {unreadCount === 0 ? (
+            <div className="p-4 text-sm text-foreground/70">No new notifications</div>
           ) : (
             <div className="max-h-96 overflow-auto">
-              {notifs.map(n => (
+              {localNotifs.map((n) => (
                 <button
                   key={n.id}
                   type="button"
                   onClick={() => markRead(n.id)}
-                  className="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 border-b last:border-b-0"
+                  className="w-full text-left px-4 py-3 text-sm hover:bg-muted/40 border-b border-border last:border-b-0"
                 >
                   {n.data?.message ?? "Notification"}
                 </button>
