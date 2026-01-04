@@ -22,39 +22,113 @@ class ClubController extends Controller
      */
     public function index(Request $request)
     {
-        $q = Club::query()
-            ->withCount('members')
-            ->with(['book:id,title']);
+        $onlyPublic = $request->boolean('only_public', true);
+        $bookId = $request->filled('book_id') ? (int) $request->integer('book_id') : null;
+        $search = $request->filled('q') ? trim((string) $request->get('q')) : null;
 
-        if ($request->boolean('only_public', true)) {
-            $q->where('is_public', true);
+        $where = [];
+        $bind  = [];
+
+        if ($onlyPublic) {
+            $where[] = "c.is_public = 1";
         }
 
-        if ($request->filled('book_id')) {
-            $q->where('book_id', $request->integer('book_id'));
+        if ($bookId) {
+            $where[] = "c.book_id = ?";
+            $bind[]  = $bookId;
         }
 
-        if ($request->filled('q')) {
-            $q->where('name', 'like', '%' . trim($request->get('q')) . '%');
+        if ($search) {
+            $where[] = "c.name LIKE ?";
+            $bind[]  = '%' . $search . '%';
         }
 
-        return $q->orderByDesc('members_count')->paginate(20);
+        $whereSql = $where ? ("WHERE " . implode(" AND ", $where)) : "";
+
+        $page    = max(1, (int) ($request->input('page', 1)));
+        $perPage = 20;
+        $offset  = ($page - 1) * $perPage;
+
+        $countRow = DB::selectOne(
+            "SELECT COUNT(*) AS total
+             FROM clubs c
+             $whereSql",
+            $bind
+        );
+        $total = (int) ($countRow->total ?? 0);
+
+        $rows = DB::select(
+            "SELECT
+                c.id,
+                c.name,
+                c.book_id,
+                c.is_public,
+                c.owner_id,
+                (
+                    SELECT COUNT(*)
+                    FROM club_members cm
+                    WHERE cm.club_id = c.id
+                ) AS members_count,
+                b.title AS book_title
+             FROM clubs c
+             LEFT JOIN books b ON b.id = c.book_id
+             $whereSql
+             ORDER BY members_count DESC
+             LIMIT $perPage OFFSET $offset",
+            $bind
+        );
+
+        return new \Illuminate\Pagination\LengthAwarePaginator(
+            $rows,
+            $total,
+            $perPage,
+            $page,
+            [
+                'path'  => $request->url(),
+                'query' => array_filter([
+                    'only_public' => $request->input('only_public', $onlyPublic),
+                    'book_id'     => $bookId,
+                    'q'           => $search,
+                ], fn($v) => $v !== null && $v !== ''),
+            ]
+        );
     }
 
     public function myClubs(Request $request)
     {
         $uid = $request->user()->getAuthIdentifier();
 
-        $clubs = Club::query()
-            ->where(function ($q) use ($uid) {
-                $q->where('owner_id', $uid)
-                  ->orWhereHas('members', fn($m) => $m->where('user_id', $uid));
-            })
-            ->withCount('members')
-            ->with(['owner:id,name'])
-            ->orderByDesc('is_public')   // show private first
-            ->orderBy('name')
-            ->get(['id','name','book_id','is_public','owner_id']);
+        $rows = DB::select(
+            "SELECT
+                c.id,
+                c.name,
+                c.book_id,
+                c.is_public,
+                c.owner_id,
+                (
+                    SELECT COUNT(*)
+                    FROM club_members cm
+                    WHERE cm.club_id = c.id
+                ) AS members_count,
+                u.name AS owner_name
+             FROM clubs c
+             LEFT JOIN users u ON u.id = c.owner_id
+             WHERE
+                c.owner_id = ?
+                OR EXISTS (
+                    SELECT 1
+                    FROM club_members cm2
+                    WHERE cm2.club_id = c.id AND cm2.user_id = ?
+                )
+             ORDER BY c.is_public DESC, c.name ASC",
+            [$uid, $uid]
+        );
+
+        $clubs = collect($rows)->map(function ($c) {
+            $c->owner = $c->owner_id ? (object) ['id' => $c->owner_id, 'name' => $c->owner_name] : null;
+            unset($c->owner_name);
+            return $c;
+        });
 
         return Inertia::render('PrivateClubs', [
             'clubs' => $clubs,

@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class ModerationController extends Controller
 {
@@ -17,34 +18,28 @@ class ModerationController extends Controller
 
     public function promote(User $user)
     {
-        $user->is_submitter = true;
-        $user->save();
+        DB::update("UPDATE users SET is_submitter = 1 WHERE id = ?", [$user->id]);
 
         return back()->with('success', "{$user->name} promoted to submitter.");
     }
 
     public function demote(User $user)
     {
-        $user->is_submitter = false;
-        $user->save();
+        DB::update("UPDATE users SET is_submitter = 0 WHERE id = ?", [$user->id]);
 
         return back()->with('success', "{$user->name} removed from submitter role.");
     }
 
     public function ban(User $user)
     {
-        $user->is_banned = true;
-        // optional: clear mute when fully banned
-        $user->muted_until = null;
-        $user->save();
+        DB::update("UPDATE users SET is_banned = 1, muted_until = NULL WHERE id = ?", [$user->id]);
 
         return back()->with('success', "{$user->name} has been banned.");
     }
 
     public function unban(User $user)
     {
-        $user->is_banned = false;
-        $user->save();
+        DB::update("UPDATE users SET is_banned = 0 WHERE id = ?", [$user->id]);
 
         return back()->with('success', "{$user->name} has been unbanned.");
     }
@@ -52,21 +47,19 @@ class ModerationController extends Controller
     public function mute(Request $request, User $user)
     {
         $data = $request->validate([
-            'duration' => 'required|integer|min:1', // minutes
+            'duration' => 'required|integer|min:1',
         ]);
 
         $until = Carbon::now()->addMinutes($data['duration']);
 
-        $user->muted_until = $until;
-        $user->save();
+        DB::update("UPDATE users SET muted_until = ? WHERE id = ?", [$until, $user->id]);
 
         return back()->with('success', "{$user->name} muted until {$until->toDateTimeString()}.");
     }
 
     public function clearMute(User $user)
     {
-        $user->muted_until = null;
-        $user->save();
+        DB::update("UPDATE users SET muted_until = NULL WHERE id = ?", [$user->id]);
 
         return back()->with('success', "Mute cleared for {$user->name}.");
     }
