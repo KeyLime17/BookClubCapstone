@@ -48,6 +48,10 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Pro
   const listRef = useRef<HTMLDivElement | null>(null);
   const messagesBase = clubIdOverride ? '' : '/api';
 
+  //to replace alert
+  const [notice, setNotice] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
+
+
   const safeJson = async (resp: Response) => {
     const text = await resp.text();
     try {
@@ -192,20 +196,27 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Pro
       }
 
       if (resp.status === 201 && json) {
+        setNotice(null);
         setBody('');
         setMessages((prev) => [...prev, json]);
         lastIdRef.current = json.id ?? lastIdRef.current;
       } else if (resp.status === 401) {
-        alert('Log in to send messages.');
+        setNotice({ type: 'error', text: 'Please log in to send messages.' });
       } else if (resp.status === 403 && isMuted) {
-        alert('You are muted and cannot send messages right now.');
+        setNotice({ type: 'error', text: 'You are muted and cannot send messages right now.' });
+      } else if (resp.status === 422) {
+        const msg =
+          json?.message ||
+          (json?.errors?.body?.[0] as string | undefined) ||
+          'Message rejected. Please remove invalid characters and try again.';
+        setNotice({ type: 'error', text: msg });
       } else {
         console.error('[ChatBox] send failed:', resp.status, text);
-        alert('Could not send message.');
+        setNotice({ type: 'error', text: 'Could not send message. Please try again.' });
       }
     } catch (err) {
       console.error('[ChatBox] send error:', err);
-      alert('Network or server error.');
+      setNotice({ type: 'error', text: 'Network or server error.' });
     }
   };
 
@@ -239,6 +250,28 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Pro
           </div>
         ))}
       </div>
+
+      {/* Notice banner: to replace alert */}
+      {notice && (
+        <div
+          className={`text-sm rounded-lg border px-3 py-2 ${
+            notice.type === 'error'
+              ? 'border-red-300 bg-red-50 text-red-700'
+              : 'border-green-300 bg-green-50 text-green-700'
+          }`}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <span>{notice.text}</span>
+            <button
+              type="button"
+              className="text-xs underline opacity-70 hover:opacity-100"
+              onClick={() => setNotice(null)}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Bottom area: depends on login + mute state */}
       {!authUser ? (

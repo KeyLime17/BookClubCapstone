@@ -17,6 +17,8 @@ type Props = {
   clubs: Club[];
 };
 
+type Notice = { type: 'error' | 'success'; text: string } | null;
+
 export default function PrivateClubs({ clubs }: Props) {
   const page = usePage<any>();
   const authUserId = page.props?.auth?.user?.id as number | undefined;
@@ -30,26 +32,73 @@ export default function PrivateClubs({ clubs }: Props) {
   const [editingName, setEditingName] = useState<string>('');
   const [renameError, setRenameError] = useState<string | null>(null);
 
+  const [notice, setNotice] = useState<Notice>(null);
+
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    danger?: boolean;
+    onConfirm: (() => void) | null;
+  }>({
+    open: false,
+    title: '',
+    message: '',
+    confirmLabel: 'Confirm',
+    danger: false,
+    onConfirm: null,
+  });
+
+  const openConfirm = (opts: {
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    danger?: boolean;
+    onConfirm: () => void;
+  }) => {
+    setConfirmState({
+      open: true,
+      title: opts.title,
+      message: opts.message,
+      confirmLabel: opts.confirmLabel ?? 'Confirm',
+      danger: !!opts.danger,
+      onConfirm: opts.onConfirm,
+    });
+  };
+
+  const closeConfirm = () => {
+    setConfirmState((prev) => ({ ...prev, open: false, onConfirm: null }));
+  };
+
   const isOwner = (c: Club) =>
     !c.is_public && authUserId != null && c.owner_id === authUserId;
 
   // --- DELETE CLUB (owner only) via Inertia ---
   const handleDelete = (club: Club) => {
-    if (!confirm(`Delete "${club.name}"? This will remove all messages and members.`)) {
-      return;
-    }
+    openConfirm({
+      title: 'Delete club',
+      message: `Delete "${club.name}"? This will remove all messages and members.`,
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: () => {
+        closeConfirm();
+        setBusyId(club.id);
+        setMenuOpenId(null);
 
-    setBusyId(club.id);
-    setMenuOpenId(null);
-
-    router.delete(`/clubs/${club.id}`, {
-      preserveScroll: true,
-      onError: (errors) => {
-        console.error('Delete error:', errors);
-        alert('Could not delete the club.');
-      },
-      onFinish: () => {
-        setBusyId(null);
+        router.delete(`/clubs/${club.id}`, {
+          preserveScroll: true,
+          onError: (errors) => {
+            console.error('Delete error:', errors);
+            setNotice({ type: 'error', text: 'Could not delete the club.' });
+          },
+          onSuccess: () => {
+            setNotice({ type: 'success', text: `Deleted "${club.name}".` });
+          },
+          onFinish: () => {
+            setBusyId(null);
+          },
+        });
       },
     });
   };
@@ -59,6 +108,7 @@ export default function PrivateClubs({ clubs }: Props) {
     setEditingId(club.id);
     setEditingName(club.name);
     setRenameError(null);
+    setNotice(null);
   };
 
   const cancelRename = () => {
@@ -91,11 +141,11 @@ export default function PrivateClubs({ clubs }: Props) {
         preserveScroll: true,
         onError: (errors: any) => {
           console.error('Rename error:', errors);
-          // You don't have validation errors wired here, so just show generic
           setRenameError('Could not rename the club.');
+          setNotice({ type: 'error', text: 'Could not rename the club.' });
         },
         onSuccess: () => {
-          // server should send back updated clubs via Inertia props
+          setNotice({ type: 'success', text: 'Club renamed.' });
           cancelRename();
         },
         onFinish: () => {
@@ -107,18 +157,28 @@ export default function PrivateClubs({ clubs }: Props) {
 
   // --- LEAVE CLUB (non-owner) via Inertia DELETE ---
   const handleLeave = (club: Club) => {
-    if (!confirm('Leave this club?')) return;
+    openConfirm({
+      title: 'Leave club',
+      message: `Leave "${club.name}"?`,
+      confirmLabel: 'Leave',
+      danger: false,
+      onConfirm: () => {
+        closeConfirm();
+        setBusyId(club.id);
 
-    setBusyId(club.id);
-
-    router.delete(`/clubs/${club.id}/leave`, {
-      preserveScroll: true,
-      onError: (errors) => {
-        console.error('Leave error:', errors);
-        alert('Could not leave the club.');
-      },
-      onFinish: () => {
-        setBusyId(null);
+        router.delete(`/clubs/${club.id}/leave`, {
+          preserveScroll: true,
+          onError: (errors) => {
+            console.error('Leave error:', errors);
+            setNotice({ type: 'error', text: 'Could not leave the club.' });
+          },
+          onSuccess: () => {
+            setNotice({ type: 'success', text: `You left "${club.name}".` });
+          },
+          onFinish: () => {
+            setBusyId(null);
+          },
+        });
       },
     });
   };
@@ -129,10 +189,33 @@ export default function PrivateClubs({ clubs }: Props) {
         <h1 className="text-2xl font-semibold">Your Clubs</h1>
       </div>
 
+      {/* Existing flash messages */}
       {flash?.success && (
         <div className="mb-3 text-sm text-green-700">{flash.success}</div>
       )}
       {flash?.error && <div className="mb-3 text-sm text-red-700">{flash.error}</div>}
+
+      {/* Notice banner replaces alert */}
+      {notice && (
+        <div
+          className={`mb-3 text-sm rounded-lg border px-3 py-2 ${
+            notice.type === 'error'
+              ? 'border-red-300 bg-red-50 text-red-700'
+              : 'border-green-300 bg-green-50 text-green-700'
+          }`}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <span>{notice.text}</span>
+            <button
+              type="button"
+              className="text-xs underline opacity-70 hover:opacity-100"
+              onClick={() => setNotice(null)}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
       {clubs.length === 0 ? (
         <div className="rounded border bg-white p-4 text-sm text-gray-600">
@@ -183,7 +266,6 @@ export default function PrivateClubs({ clubs }: Props) {
                   </div>
 
                   <div className="relative flex items-center gap-2">
-                    {/* Open chat */}
                     <Link
                       href={`/clubs/${c.id}/chat`}
                       className="text-sm px-3 py-1.5 rounded border hover:bg-gray-50"
@@ -191,7 +273,6 @@ export default function PrivateClubs({ clubs }: Props) {
                       Open chat
                     </Link>
 
-                    {/* Non-owner: Leave button (private only) */}
                     {!c.is_public && !owner && (
                       <button
                         type="button"
@@ -203,7 +284,6 @@ export default function PrivateClubs({ clubs }: Props) {
                       </button>
                     )}
 
-                    {/* Owner: 3-dot menu (rename/delete) */}
                     {owner && (
                       <div className="relative">
                         <button
@@ -243,7 +323,6 @@ export default function PrivateClubs({ clubs }: Props) {
                   </div>
                 </div>
 
-                {/* Inline rename panel */}
                 {owner && isEditing && (
                   <form
                     onSubmit={(e) => submitRename(c, e)}
@@ -287,6 +366,39 @@ export default function PrivateClubs({ clubs }: Props) {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ✅ Confirmation modal (replaces confirm()) */}
+      {confirmState.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={closeConfirm}
+          />
+          <div className="relative w-full max-w-md rounded-xl border bg-white shadow-xl p-4">
+            <h2 className="text-lg font-semibold">{confirmState.title}</h2>
+            <p className="mt-2 text-sm text-gray-700">{confirmState.message}</p>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                className="px-3 py-1.5 text-sm rounded border hover:bg-gray-50"
+                onClick={closeConfirm}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={`px-3 py-1.5 text-sm rounded text-white ${
+                  confirmState.danger ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-900 hover:bg-gray-800'
+                }`}
+                onClick={() => confirmState.onConfirm?.()}
+              >
+                {confirmState.confirmLabel ?? 'Confirm'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </AppLayout>

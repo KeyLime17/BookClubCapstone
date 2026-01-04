@@ -31,23 +31,26 @@ interface PageProps {
 }
 
 export default function ReviewSubmissionDetail(props: PageProps) {
-  const { submission, genres, imageUrl } = props
+  const { submission, genres, imageUrl } = props;
 
   const [description, setDescription] = React.useState<string>('');
   const [releasedAt, setReleasedAt] = React.useState<string>('');
-  const [genreId, setGenreId] = React.useState<number | ''>(
-    genres[0]?.id ?? ''
-  );
+  const [genreId, setGenreId] = React.useState<number | ''>(genres[0]?.id ?? '');
   const [busy, setBusy] = React.useState(false);
+
+  // replaces alert()
+  const [notice, setNotice] = React.useState<{ type: 'error' | 'success'; text: string } | null>(null);
 
   const approve = (e: React.FormEvent) => {
     e.preventDefault();
     if (!genreId) {
-      alert('Please select a genre before approving.');
+      setNotice({ type: 'error', text: 'Please select a genre before approving.' });
       return;
     }
 
     setBusy(true);
+    setNotice(null);
+
     router.post(
       `/review/${submission.id}/approve`,
       {
@@ -66,11 +69,9 @@ export default function ReviewSubmissionDetail(props: PageProps) {
     if (!confirm('Reject this submission?')) return;
 
     setBusy(true);
-    router.post(
-      `/review/${submission.id}/reject`,
-      {},
-      { onFinish: () => setBusy(false) }
-    );
+    setNotice(null);
+
+    router.post(`/review/${submission.id}/reject`, {}, { onFinish: () => setBusy(false) });
   };
 
   return (
@@ -78,9 +79,7 @@ export default function ReviewSubmissionDetail(props: PageProps) {
       <Head title={`Review: ${submission.title}`} />
 
       <div className="max-w-4xl mx-auto py-8 px-4 space-y-6">
-        <h1 className="text-2xl font-semibold">
-          Review Submission: {submission.title}
-        </h1>
+        <h1 className="text-2xl font-semibold">Review Submission: {submission.title}</h1>
 
         <div className="grid gap-6 md:grid-cols-2">
           <div className="space-y-3">
@@ -91,8 +90,7 @@ export default function ReviewSubmissionDetail(props: PageProps) {
               <span className="font-medium">Author:</span> {submission.author}
             </p>
             <p className="text-sm text-gray-700">
-              <span className="font-medium">Submitted by:</span>{' '}
-              {submission.user.name}
+              <span className="font-medium">Submitted by:</span> {submission.user.name}
             </p>
             {submission.link && (
               <p className="text-sm text-gray-700">
@@ -129,25 +127,39 @@ export default function ReviewSubmissionDetail(props: PageProps) {
           </div>
         </div>
 
+        {/* notice banner (replaces alert) */}
+        {notice && (
+          <div
+            className={`text-sm rounded-lg border px-3 py-2 ${
+              notice.type === 'error'
+                ? 'border-red-300 bg-red-50 text-red-700'
+                : 'border-green-300 bg-green-50 text-green-700'
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <span>{notice.text}</span>
+              <button
+                type="button"
+                className="text-xs underline opacity-70 hover:opacity-100"
+                onClick={() => setNotice(null)}
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
+
         <form onSubmit={approve} className="space-y-4 rounded border bg-white p-4">
           <div>
-            <label className="block text-sm font-medium mb-1">
-              Genre
-            </label>
+            <label className="block text-sm font-medium mb-1">Genre</label>
             <select
               className="w-full border rounded px-3 py-2 text-sm"
               value={genreId}
-              onChange={(e) =>
-                setGenreId(e.target.value ? Number(e.target.value) : '')
-              }
+              onChange={(e) => setGenreId(e.target.value ? Number(e.target.value) : '')}
             >
-              {genres.length === 0 && (
-                <option value="">No genres defined</option>
-              )}
+              {genres.length === 0 && <option value="">No genres defined</option>}
               {genres.length > 0 && (
                 <>
-                  {/* optional "choose" prompt */}
-                  {/* <option value="">Select a genre…</option> */}
                   {genres.map((g) => (
                     <option key={g.id} value={g.id}>
                       {g.name}
@@ -159,9 +171,7 @@ export default function ReviewSubmissionDetail(props: PageProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">
-              Description
-            </label>
+            <label className="block text-sm font-medium mb-1">Description</label>
             <textarea
               className="w-full border rounded px-3 py-2 text-sm min-h-[120px]"
               placeholder="Add a catalog description for this book…"
@@ -171,9 +181,7 @@ export default function ReviewSubmissionDetail(props: PageProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">
-              Release date
-            </label>
+            <label className="block text-sm font-medium mb-1">Release date</label>
             <input
               type="date"
               className="w-full border rounded px-3 py-2 text-sm"

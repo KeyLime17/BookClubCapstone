@@ -6,7 +6,6 @@ import ChatBox from '@/components/ChatBox';
 type Club = { id: number; name: string; book_id: number; is_public: boolean };
 type Props = { club: Club };
 
-
 function getCookie(name: string): string | null {
   const match = document.cookie.match(
     new RegExp('(?:^|; )' + name.replace(/([$?*|{}\]\\^])/g, '\\$1') + '=([^;]*)')
@@ -20,10 +19,15 @@ function InvitePanel({ clubId }: { clubId: number }) {
   const [busy, setBusy] = React.useState(false);
   const [searching, setSearching] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  const [notice, setNotice] = React.useState<{ type: 'error' | 'success'; text: string } | null>(null);
+
   const t = React.useRef<number | null>(null);
 
   const runSearch = async (val: string) => {
     setError(null);
+    setNotice(null);
+
     if (!val.trim()) { setList([]); return; }
 
     setSearching(true);
@@ -66,6 +70,7 @@ function InvitePanel({ clubId }: { clubId: number }) {
   const invite = async (userId: number) => {
     setBusy(true);
     setError(null);
+    setNotice(null);
 
     try {
       const xsrf = getCookie('XSRF-TOKEN') || '';
@@ -98,7 +103,7 @@ function InvitePanel({ clubId }: { clubId: number }) {
         return;
       }
 
-      alert('Invite sent!');
+      setNotice({ type: 'success', text: 'Invite sent!' });
       setQ('');
       setList([]);
     } catch {
@@ -123,6 +128,28 @@ function InvitePanel({ clubId }: { clubId: number }) {
           {searching ? 'Searching…' : 'Type to search'}
         </span>
       </div>
+
+      {/* ✅ Notice banner */}
+      {notice && (
+        <div
+          className={`mt-2 text-sm rounded-lg border px-3 py-2 ${
+            notice.type === 'error'
+              ? 'border-red-300 bg-red-50 text-red-700'
+              : 'border-green-300 bg-green-50 text-green-700'
+          }`}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <span>{notice.text}</span>
+            <button
+              type="button"
+              className="text-xs underline opacity-70 hover:opacity-100"
+              onClick={() => setNotice(null)}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
       {error && <div className="mt-2 text-sm text-red-600">{error}</div>}
 
