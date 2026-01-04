@@ -23,7 +23,6 @@ class CatalogController extends Controller
             'page'  => ['nullable','integer','min:1'],
         ]);
 
-
         $genresSelected = $validated['genres'] ?? null;
         if (!is_array($genresSelected) || count($genresSelected) === 0) {
             $genresSelected = !empty($validated['genre']) ? [$validated['genre']] : [];
@@ -35,7 +34,6 @@ class CatalogController extends Controller
             'from'   => $validated['from'] ?? null,
             'to'     => $validated['to'] ?? null,
         ];
-
 
         $genres = DB::table('genres')
             ->select('id','name','slug')
@@ -77,7 +75,6 @@ class CatalogController extends Controller
             $bind[]  = $to;
         }
 
-
         $whereSql = $where ? ("WHERE " . implode(" AND ", $where)) : "";
         $perPage = 12;
         $page    = (int) ($validated['page'] ?? Paginator::resolveCurrentPage() ?? 1);
@@ -90,9 +87,8 @@ class CatalogController extends Controller
             $whereSql",
             $bind
         );
-         $total = (int) ($countRow->total ?? 0);
+        $total = (int) ($countRow->total ?? 0);
 
-        // query with limit and offset
         $offset = ($page - 1) * $perPage;
 
         $rows = DB::select(
@@ -107,7 +103,6 @@ class CatalogController extends Controller
             $bind
         );
 
-    // Create a paginator for inertia
         $books = new LengthAwarePaginator(
             $rows,
             $total,
@@ -119,10 +114,18 @@ class CatalogController extends Controller
             ]
         );
 
+        $favoritedIds = [];
+        $auth = $request->user();
+        if ($auth && !empty($auth->id)) {
+            $favRows = DB::select("SELECT book_id FROM favorites WHERE user_id = ?", [$auth->id]);
+            $favoritedIds = array_map(fn($r) => (int) $r->book_id, $favRows);
+        }
+
         return Inertia::render('Catalog', [
             'books'   => $books,
             'genres'  => $genres,
             'filters' => $filters,
+            'favorited_ids' => $favoritedIds,
         ]);
     }
 }

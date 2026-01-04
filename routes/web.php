@@ -87,7 +87,9 @@ Route::middleware('auth', 'not-banned')->group(function () {
 
     Route::delete('/profile', [ProfileController::class, 'destroy'])
         ->name('profile.destroy');
-    
+    Route::post('/books/{id}/favorite', [\App\Http\Controllers\FavoriteController::class, 'toggle'])
+    ->name('books.favorite');
+
 });
 
 
@@ -151,6 +153,24 @@ Route::post('/notifications/{id}/read', function (string $id) {
 Route::get('/', function () {
     $limit = 10;
 
+    //Favorites
+    $favorites = [];
+
+    if (Auth::check()) {
+        $uid = Auth::id();
+
+        $favorites = DB::select(
+            "SELECT b.id, b.title, b.cover_url
+            FROM favorites f
+            JOIN books b ON b.id = f.book_id
+            WHERE f.user_id = ?
+            ORDER BY f.created_at DESC
+            LIMIT 10",
+            [$uid]
+        );
+    }
+
+
     // New Releases: most recent released_at (if set)
     $newReleases = DB::table('books')
         ->whereNotNull('released_at')
@@ -200,6 +220,7 @@ Route::get('/', function () {
         'newReleases' => $newReleases,
         'topRated'    => $topRated,
         'newlyAdded'  => $newlyAdded,
+        'favorites'   => $favorites, 
     ]);
 })->name('home');
 

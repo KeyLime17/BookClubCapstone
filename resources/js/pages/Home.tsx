@@ -13,6 +13,7 @@ type HomeProps = PageProps & {
   newReleases: BookSummary[];
   topRated: BookSummary[];
   newlyAdded: BookSummary[];
+  favorites?: BookSummary[];
 };
 
 function BookCarousel({
@@ -224,16 +225,22 @@ function BookCarousel({
 
 
 export default function Home() {
-  const { auth, newReleases, topRated, newlyAdded } =
+  const { auth, newReleases, topRated, newlyAdded, favorites = [] } =
     usePage<HomeProps>().props;
 
   const rawUser = auth?.user as any | undefined;
   const isBanned = rawUser?.is_banned ?? false;
 
+  const showFavorites = !!rawUser && Array.isArray(favorites) && favorites.length > 0;
+
   return (
     <AppLayout>
       {/* Carousels integrated into the page */}
       <section className="mt-6 space-y-4">
+        {showFavorites && (
+          <BookCarousel title="Your Favorites" books={favorites} />
+        )}
+
         <BookCarousel title="New Releases" books={newReleases} />
         <BookCarousel title="Top Rated" books={topRated} />
         <BookCarousel title="Newly Added" books={newlyAdded} />

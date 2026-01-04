@@ -34,11 +34,12 @@ type Props = {
     // (optional legacy support if your controller still sends it sometimes)
     genre?: string | null;
   };
+  favorited_ids?: number[];
 };
 
 type ViewMode = "comfortable" | "compact" | "dense";
 
-export default function Catalog({ books, genres, filters }: Props) {
+export default function Catalog({ books, genres, filters, favorited_ids }: Props) {
   // local form state (initialized from server-provided filters)
   const [q, setQ] = useState(filters.q ?? "");
 
@@ -56,6 +57,12 @@ export default function Catalog({ books, genres, filters }: Props) {
   const [viewMode, setViewMode] = useState<ViewMode>("comfortable");
 
   const genreMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const [favIds, setFavIds] = useState<number[]>(favorited_ids ?? []);
+
+  useEffect(() => {
+    setFavIds(favorited_ids ?? []);
+  }, [favorited_ids]);
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
@@ -108,6 +115,21 @@ export default function Catalog({ books, genres, filters }: Props) {
     setViewMode((prev) =>
       prev === "comfortable" ? "compact" : prev === "compact" ? "dense" : "comfortable"
     );
+  };
+
+  const toggleFavorite = (bookId: number) => {
+    const wasFav = favIds.includes(bookId);
+
+    // optimistic UI
+    setFavIds((prev) => (wasFav ? prev.filter((id) => id !== bookId) : [...prev, bookId]));
+
+    router.post(`/books/${bookId}/favorite`, {}, {
+      preserveScroll: true,
+      onError: () => {
+        // revert if server errors
+        setFavIds((prev) => (wasFav ? [...prev, bookId] : prev.filter((id) => id !== bookId)));
+      },
+    });
   };
 
   // grid + card classes based on view mode
@@ -364,39 +386,59 @@ export default function Catalog({ books, genres, filters }: Props) {
 
       {/* Results */}
       <div className={gridClasses}>
-        {books.data.map((b) => (
-          <InertiaLink
-            key={b.id}
-            href={`/books/${b.id}`}
-            className={`rounded-lg border border-border bg-card ${cardPadding} block hover:shadow-sm hover:bg-card/80 transition-colors`}
-          >
-            <div className="mb-2 flex items-center justify-center">
-              <div
-                className={`w-full overflow-hidden rounded bg-muted flex items-center justify-center ${imgHeight}`}
-              >
-                {b.cover_url ? (
-                  <img
-                    src={b.cover_url}
-                    alt={`${b.title} cover`}
-                    className="h-full w-full object-contain"
-                  />
-                ) : (
-                  <span className="text-[11px] text-foreground/60 px-2 text-center">
-                    No cover
-                  </span>
-                )}
-              </div>
-            </div>
+        {books.data.map((b) => {
+          const isFav = favIds.includes(b.id);
 
-            <h3 className={titleClass}>{b.title}</h3>
-            <p className={`${metaClass} text-foreground/70`}>
-              {b.author} · {b.genre}
-            </p>
-            <p className={`${metaClass} text-foreground/50 mt-1`}>
-              {b.released_at ? new Date(b.released_at).getFullYear() : "—"}
-            </p>
-          </InertiaLink>
-        ))}
+          return (
+            <InertiaLink
+              key={b.id}
+              href={`/books/${b.id}`}
+              className={`group relative rounded-lg border border-border bg-card ${cardPadding} block hover:shadow-sm hover:bg-card/80 transition-colors`}
+            >
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggleFavorite(b.id);
+                }}
+                className={`absolute right-2 top-2 z-10 rounded-full border border-border bg-card/90 px-2 py-1 text-xs hover:bg-card
+                  ${isFav ? "opacity-100" : "opacity-0 group-hover:opacity-100"}
+                `}
+                title={isFav ? "Unfavorite" : "Favorite"}
+                aria-label={isFav ? "Unfavorite" : "Favorite"}
+              >
+                {isFav ? "★" : "☆"}
+              </button>
+
+              <div className="mb-2 flex items-center justify-center">
+                <div
+                  className={`w-full overflow-hidden rounded bg-muted flex items-center justify-center ${imgHeight}`}
+                >
+                  {b.cover_url ? (
+                    <img
+                      src={b.cover_url}
+                      alt={`${b.title} cover`}
+                      className="h-full w-full object-contain"
+                    />
+                  ) : (
+                    <span className="text-[11px] text-foreground/60 px-2 text-center">
+                      No cover
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <h3 className={titleClass}>{b.title}</h3>
+              <p className={`${metaClass} text-foreground/70`}>
+                {b.author} · {b.genre}
+              </p>
+              <p className={`${metaClass} text-foreground/50 mt-1`}>
+                {b.released_at ? new Date(b.released_at).getFullYear() : "—"}
+              </p>
+            </InertiaLink>
+          );
+        })}
       </div>
 
       {/* Pagination */}
