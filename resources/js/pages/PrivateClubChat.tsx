@@ -1,5 +1,5 @@
 import React from 'react';
-import { usePage } from '@inertiajs/react';
+import { usePage, router } from '@inertiajs/react';
 import AppLayout from '@/layouts/AppLayout';
 import ChatBox from '@/components/ChatBox';
 
@@ -184,6 +184,11 @@ export default function PrivateClubChat({ club }: Props) {
   const mutedUntil = user?.muted_until ? new Date(user.muted_until) : null;
   const isMuted = mutedUntil !== null && mutedUntil > new Date();
 
+  // for dms
+  const startDm = (userId: number) => {
+    router.post(`/dm/${userId}`, {}, { preserveScroll: true });
+  };
+
   return (
     <AppLayout>
       <div className="mb-4">
@@ -195,7 +200,9 @@ export default function PrivateClubChat({ club }: Props) {
           bookId={club.book_id}
           clubIdOverride={club.id}
           canPost={!isMuted}
+          onUserClick={startDm}
         />
+
 
         {isMuted && mutedUntil && (
           <p className="text-xs text-red-600">

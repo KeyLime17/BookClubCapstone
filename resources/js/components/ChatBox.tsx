@@ -15,6 +15,7 @@ type Props = {
   bookId: number;
   canPost?: boolean;
   clubIdOverride?: number;
+  onUserClick?: (userId: number, userName?: string) => void;
 };
 
 /** Read cookie value safely */
@@ -25,7 +26,7 @@ function getCookie(name: string): string | null {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
-export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Props) {
+export default function ChatBox({ bookId, canPost = false, clubIdOverride, onUserClick }: Props) {
   const page = usePage<any>();
   const authUser = page.props.auth?.user as
     | { id: number; name: string; muted_until?: string | null }
@@ -240,15 +241,39 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride }: Pro
             No public discussion for this book yet.
           </div>
         )}
-        {messages.map((m) => (
-          <div key={m.id} className="text-sm">
-            <span className="font-medium">{m.user?.name ?? 'System'}:</span>{' '}
-            <span>{m.body}</span>
-            <span className="opacity-60 text-xs ml-2">
-              {new Date(m.created_at).toLocaleTimeString()}
-            </span>
-          </div>
-        ))}
+        {/* Usernames should be clickable */}
+        {messages.map((m) => {
+          const isSystem = !m.user;
+          const canDmThisUser = !!onUserClick && !!m.user && !!authUser && m.user.id !== authUser.id;
+
+          return (
+            <div key={m.id} className="text-sm">
+              {canDmThisUser ? (
+                <button
+                  type="button"
+                  className="font-medium hover:underline"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onUserClick(m.user!.id, m.user!.name);
+                  }}
+                  title={`Message ${m.user!.name}`}
+                >
+                  {m.user!.name}:
+                </button>
+              ) : (
+                <span className="font-medium">
+                  {isSystem ? "System" : (m.user?.name ?? "Unknown")}:
+                </span>
+              )}{" "}
+              <span>{m.body}</span>
+              <span className="opacity-60 text-xs ml-2">
+                {new Date(m.created_at).toLocaleTimeString()}
+              </span>
+            </div>
+          );
+        })}
+
       </div>
 
       {/* Notice banner: to replace alert */}

@@ -28,6 +28,11 @@ type Props = {
 export default function BookPage({ book, avg_rating, ratings_count, my_rating, my_private_club_id }: Props) {
   const year = book.released_at ? new Date(book.released_at).getFullYear() : null;
   const { auth } = usePage<PageProps>().props;
+  // for dming
+  const startDm = (userId: number) => {
+    router.post(`/dm/${userId}`, {}, { preserveScroll: true });
+  };
+
 
   // local state for user's rating
   const [mine, setMine] = useState<number | null>(my_rating?.rating ?? null);
@@ -233,7 +238,11 @@ export default function BookPage({ book, avg_rating, ratings_count, my_rating, m
 
       {/* DISCUSSION: public club chat for this book */}
       <section className="mt-6 space-y-4">
-        <ChatBox bookId={book.id} canPost={!!auth?.user} />
+        <ChatBox
+          bookId={book.id}
+          canPost={!!auth?.user}
+          onUserClick={startDm}
+        />
 
         {auth?.user &&
           (my_private_club_id ? (
