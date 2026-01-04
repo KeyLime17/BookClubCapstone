@@ -15,18 +15,27 @@ class CatalogController extends Controller
     {
         $validated = $request->validate([
             'q'     => ['nullable','string','max:200'],
-            'genre' => ['nullable','string','max:100'], // we’ll pass slug
+            'genre' => ['nullable','string','max:100'],
+            'genres'=> ['nullable','array'],
+            'genres.*' => ['string','max:100'],
             'from'  => ['nullable','date'],
             'to'    => ['nullable','date'],
             'page'  => ['nullable','integer','min:1'],
         ]);
 
+
+        $genresSelected = $validated['genres'] ?? null;
+        if (!is_array($genresSelected) || count($genresSelected) === 0) {
+            $genresSelected = !empty($validated['genre']) ? [$validated['genre']] : [];
+        }
+
         $filters = [
-            'q'     => $validated['q']    ?? null,
-            'genre' => $validated['genre']?? null,
-            'from'  => $validated['from'] ?? null,
-            'to'    => $validated['to']   ?? null,
+            'q'      => $validated['q'] ?? null,
+            'genres' => $genresSelected,
+            'from'   => $validated['from'] ?? null,
+            'to'     => $validated['to'] ?? null,
         ];
+
 
         $genres = DB::table('genres')
             ->select('id','name','slug')
@@ -44,10 +53,14 @@ class CatalogController extends Controller
             $bind[] = $like;
         }
 
-        if (!empty($filters['genre'])) {
-            $where[] = "g.slug = ?";
-            $bind[]  = $filters['genre'];
+        if (!empty($filters['genres'])) {
+            $placeholders = implode(',', array_fill(0, count($filters['genres']), '?'));
+            $where[] = "g.slug IN ($placeholders)";
+            foreach ($filters['genres'] as $slug) {
+                $bind[] = $slug;
+            }
         }
+
         $from = $filters['from'] ?? null;
         $to   = $filters['to'] ?? null;
 
@@ -102,7 +115,7 @@ class CatalogController extends Controller
             $page,
             [
                 'path'  => $request->url(),
-                'query' => array_filter($filters, fn($v) => filled($v)),
+                'query' => array_filter($filters, fn($v) => filled($v) || (is_array($v) && count($v) > 0)),
             ]
         );
 

@@ -28,9 +28,11 @@ type Props = {
   genres: Genre[];
   filters: {
     q?: string | null;
-    genre?: string | null;
+    genres?: string[] | null;
     from?: string | null;
     to?: string | null;
+    // (optional legacy support if your controller still sends it sometimes)
+    genre?: string | null;
   };
 };
 
@@ -39,7 +41,12 @@ type ViewMode = "comfortable" | "compact" | "dense";
 export default function Catalog({ books, genres, filters }: Props) {
   // local form state (initialized from server-provided filters)
   const [q, setQ] = useState(filters.q ?? "");
-  const [genre, setGenre] = useState(filters.genre ?? "");
+
+  const initialGenres =
+    (Array.isArray(filters.genres) && filters.genres) ||
+    (filters.genre ? [filters.genre] : []);
+  const [selectedGenres, setSelectedGenres] = useState<string[]>(initialGenres);
+
   const [from, setFrom] = useState(filters.from ?? "");
   const [to, setTo] = useState(filters.to ?? "");
 
@@ -49,9 +56,10 @@ export default function Catalog({ books, genres, filters }: Props) {
   // submit filters with GET (Inertia)
   const apply = (e?: React.FormEvent) => {
     e?.preventDefault();
-    const params: Record<string, string> = {};
+
+    const params: Record<string, any> = {};
     if (q.trim()) params.q = q.trim();
-    if (genre) params.genre = genre;
+    if (selectedGenres.length > 0) params.genres = selectedGenres;
     if (from) params.from = from;
     if (to) params.to = to;
 
@@ -62,12 +70,25 @@ export default function Catalog({ books, genres, filters }: Props) {
     });
   };
 
-  const clearFilter = (key: "q" | "genre" | "from" | "to") => {
+  const toggleGenre = (slug: string) => {
+    setSelectedGenres((prev) => {
+      const next = prev.includes(slug) ? prev.filter((g) => g !== slug) : [...prev, slug];
+      return next;
+    });
+  };
+
+  const clearFilter = (key: "q" | "genres" | "from" | "to") => {
     if (key === "q") setQ("");
-    if (key === "genre") setGenre("");
+    if (key === "genres") setSelectedGenres([]);
     if (key === "from") setFrom("");
     if (key === "to") setTo("");
-    apply(); // re-run with updated state
+    // re-run with updated state (next tick so state is updated)
+    setTimeout(() => apply(), 0);
+  };
+
+  const removeOneGenre = (slug: string) => {
+    setSelectedGenres((prev) => prev.filter((g) => g !== slug));
+    setTimeout(() => apply(), 0);
   };
 
   const cycleViewMode = () => {
@@ -109,7 +130,6 @@ export default function Catalog({ books, genres, filters }: Props) {
           className="inline-flex items-center gap-1 rounded border border-border bg-card px-3 py-1.5 text-xs sm:text-sm hover:bg-card/80"
           title="Change card size"
         >
-          {/* simple square-grid icon */}
           <span className="grid grid-cols-2 gap-[2px]">
             <span className="h-2 w-2 rounded-sm border border-border" />
             <span className="h-2 w-2 rounded-sm border border-border" />
@@ -138,28 +158,17 @@ export default function Catalog({ books, genres, filters }: Props) {
           />
 
           <div className="flex items-center gap-2">
-            {/* Filter toggle button */}
             <button
               type="button"
               onClick={() => setFiltersOpen((o) => !o)}
               className="inline-flex items-center gap-1 rounded border border-border bg-card px-3 py-2 text-sm hover:bg-card/80"
             >
-              {/* funnel icon */}
-              <svg
-                viewBox="0 0 24 24"
-                className="h-4 w-4"
-                aria-hidden="true"
-                focusable="false"
-              >
-                <path
-                  d="M4 5h16l-5.5 7v5l-5 2v-7L4 5z"
-                  fill="currentColor"
-                />
+              <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" focusable="false">
+                <path d="M4 5h16l-5.5 7v5l-5 2v-7L4 5z" fill="currentColor" />
               </svg>
               <span>Filters</span>
             </button>
 
-            {/* Apply button */}
             <button
               type="submit"
               className="rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
@@ -173,22 +182,38 @@ export default function Catalog({ books, genres, filters }: Props) {
         {filtersOpen && (
           <div className="rounded border border-border bg-card px-3 py-3 text-sm space-y-3">
             <div className="grid gap-3 sm:grid-cols-3">
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-foreground/70">
-                  Genre
-                </label>
-                <select
-                  value={genre}
-                  onChange={(e) => setGenre(e.target.value)}
-                  className="rounded border border-border px-2 py-2 text-sm"
-                >
-                  <option value="">All genres</option>
-                  {genres.map((g) => (
-                    <option key={g.id} value={g.slug}>
-                      {g.name}
-                    </option>
-                  ))}
-                </select>
+              <div className="flex flex-col gap-1 sm:col-span-1">
+                <label className="text-xs font-medium text-foreground/70">Genre</label>
+
+                <div className="rounded border border-border bg-background p-2 max-h-44 overflow-auto">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-foreground/60">
+                      {selectedGenres.length ? `${selectedGenres.length} selected` : "All genres"}
+                    </span>
+                    {selectedGenres.length > 0 && (
+                      <button
+                        type="button"
+                        className="text-xs underline text-foreground/70 hover:text-foreground"
+                        onClick={() => setSelectedGenres([])}
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    {genres.map((g) => (
+                      <label key={g.id} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={selectedGenres.includes(g.slug)}
+                          onChange={() => toggleGenre(g.slug)}
+                        />
+                        <span>{g.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               <div className="flex flex-col gap-1">
@@ -230,19 +255,34 @@ export default function Catalog({ books, genres, filters }: Props) {
               <span className="text-foreground/60">✕</span>
             </button>
           )}
-          {genre && (
+
+          {selectedGenres.map((slug) => (
             <button
+              key={slug}
               type="button"
-              onClick={() => clearFilter("genre")}
+              onClick={() => removeOneGenre(slug)}
               className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 hover:bg-muted/80"
+              title="Remove genre"
             >
               <span>
-                Genre:{" "}
-                {genres.find((g) => g.slug === genre)?.name ?? genre}
+                Genre: {genres.find((g) => g.slug === slug)?.name ?? slug}
               </span>
               <span className="text-foreground/60">✕</span>
             </button>
+          ))}
+
+          {selectedGenres.length > 0 && (
+            <button
+              type="button"
+              onClick={() => clearFilter("genres")}
+              className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 hover:bg-muted/80"
+              title="Clear all genres"
+            >
+              <span>Clear genres</span>
+              <span className="text-foreground/60">✕</span>
+            </button>
           )}
+
           {from && (
             <button
               type="button"
@@ -275,7 +315,9 @@ export default function Catalog({ books, genres, filters }: Props) {
             className={`rounded-lg border border-border bg-card ${cardPadding} block hover:shadow-sm hover:bg-card/80 transition-colors`}
           >
             <div className="mb-2 flex items-center justify-center">
-              <div className={`w-full overflow-hidden rounded bg-muted flex items-center justify-center ${imgHeight}`}>
+              <div
+                className={`w-full overflow-hidden rounded bg-muted flex items-center justify-center ${imgHeight}`}
+              >
                 {b.cover_url ? (
                   <img
                     src={b.cover_url}
