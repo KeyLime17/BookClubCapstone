@@ -90,6 +90,11 @@ Route::middleware('auth', 'not-banned')->group(function () {
     Route::post('/books/{id}/favorite', [\App\Http\Controllers\FavoriteController::class, 'toggle'])
     ->name('books.favorite');
 
+    // For direct messaging
+    Route::post('/dm/{user}', [\App\Http\Controllers\DirectMessageController::class, 'start'])
+        ->name('dm.start');
+
+
 });
 
 
