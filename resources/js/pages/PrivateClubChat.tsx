@@ -200,7 +200,9 @@ export default function PrivateClubChat({ club }: Props) {
           bookId={club.book_id}
           clubIdOverride={club.id}
           canPost={!isMuted}
-          onUserClick={startDm}
+          onUserClick={(userId) => {
+            router.post(`/dm/${userId}`, {}, { preserveScroll: true });
+          }}
         />
 
 

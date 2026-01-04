@@ -241,7 +241,9 @@ export default function BookPage({ book, avg_rating, ratings_count, my_rating, m
         <ChatBox
           bookId={book.id}
           canPost={!!auth?.user}
-          onUserClick={startDm}
+          onUserClick={(userId) => {
+            router.post(`/dm/${userId}`, {}, { preserveScroll: true });
+          }}
         />
 
         {auth?.user &&
