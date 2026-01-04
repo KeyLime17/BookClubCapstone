@@ -93,6 +93,17 @@ Route::middleware('auth', 'not-banned')->group(function () {
     // For direct messaging
     Route::post('/dm/{user}', [\App\Http\Controllers\DirectMessageController::class, 'start'])
         ->name('dm.start');
+    
+    Route::get('/messages', [\App\Http\Controllers\DirectMessageThreadController::class, 'inbox'])
+        ->name('messages.inbox');
+
+    Route::get('/messages/{conversation}', [\App\Http\Controllers\DirectMessageThreadController::class, 'show'])
+        ->whereNumber('conversation')
+        ->name('messages.show');
+
+    Route::post('/messages/{conversation}', [\App\Http\Controllers\DirectMessageThreadController::class, 'store'])
+        ->whereNumber('conversation')
+        ->name('messages.store');
 
 
 });

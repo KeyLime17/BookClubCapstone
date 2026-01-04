@@ -129,7 +129,7 @@ function InvitePanel({ clubId }: { clubId: number }) {
         </span>
       </div>
 
-      {/* ✅ Notice banner */}
+      {/* Notice banner */}
       {notice && (
         <div
           className={`mt-2 text-sm rounded-lg border px-3 py-2 ${
