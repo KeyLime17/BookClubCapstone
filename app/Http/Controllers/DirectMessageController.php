@@ -20,7 +20,7 @@ class DirectMessageController extends Controller
         $myId = (int) $me->id;
         $otherId = (int) $user->id;
 
-        // Find existing 1:1 conversation:
+        // Find existing  conversation
         // A convo that has exactly these 2 participants and is_group = 0.
         $existing = DB::selectOne(
             "SELECT c.id
@@ -44,20 +44,23 @@ class DirectMessageController extends Controller
                 'updated_at' => now(),
             ]);
 
-            DB::table('conversation_participants')->insert([
-                [
-                    'conversation_id' => $conversationId,
-                    'user_id' => $myId,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ],
-                [
-                    'conversation_id' => $conversationId,
-                    'user_id' => $otherId,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ],
-            ]);
+        DB::table('conversation_participants')->insert([
+            [
+                'conversation_id' => $conversationId,
+                'user_id' => $myId,
+                'status' => 'accepted',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'conversation_id' => $conversationId,
+                'user_id' => $otherId,
+                'status' => 'pending',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
 
             return redirect()->to("/messages/" . $conversationId);
         });
