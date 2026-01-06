@@ -1,8 +1,8 @@
 import React from "react";
 import AppLayout from "@/layouts/AppLayout";
-import { router } from "@inertiajs/react";
+import { Link, router } from "@inertiajs/react";
 
-type RequestRow = {
+type Thread = {
   conversation_id: number;
   other_user_id: number;
   other_user_name: string;
@@ -12,39 +12,65 @@ type RequestRow = {
 };
 
 type Props = {
-  requests: RequestRow[];
+  threads: Thread[];
+  requests: Thread[];
 };
 
-export default function MessagesRequests({ requests }: Props) {
+type Tab = "inbox" | "requests";
+
+export default function MessagesInbox({ threads, requests }: Props) {
+  const [tab, setTab] = React.useState<Tab>("inbox");
+
+  const list = tab === "inbox" ? threads : requests;
+
   const accept = (conversationId: number) => {
-    router.post(
-      `/messages/${conversationId}/accept`,
-      {},
-      { preserveScroll: true, replace: true }
-    );
+    router.post(`/messages/${conversationId}/accept`, {}, { preserveScroll: true });
   };
 
   const deny = (conversationId: number) => {
-    router.post(
-      `/messages/${conversationId}/deny`,
-      {},
-      { preserveScroll: true, replace: true }
-    );
+    router.post(`/messages/${conversationId}/deny`, {}, { preserveScroll: true });
   };
 
   return (
     <AppLayout>
       <div className="mb-4">
-        <h1 className="text-2xl font-semibold">Message Requests</h1>
+        <h1 className="text-2xl font-semibold">Messages</h1>
       </div>
 
-      {requests.length === 0 ? (
+      <div className="mb-3 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setTab("inbox")}
+          className={`rounded border px-3 py-1.5 text-sm ${
+            tab === "inbox" ? "bg-muted" : "hover:bg-muted/80"
+          }`}
+        >
+          Inbox
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setTab("requests")}
+          className={`rounded border px-3 py-1.5 text-sm ${
+            tab === "requests" ? "bg-muted" : "hover:bg-muted/80"
+          }`}
+        >
+          Requests
+          {requests.length > 0 && (
+            <span className="ml-2 inline-flex items-center justify-center rounded-full bg-red-500 px-2 py-0.5 text-[11px] text-white">
+              {requests.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {list.length === 0 ? (
         <div className="rounded border bg-white p-4 text-sm text-gray-600">
-          No message requests.
+          {tab === "inbox" ? "No messages yet." : "No message requests."}
         </div>
       ) : (
         <div className="divide-y rounded border bg-white">
-          {requests.map((t) => (
+          {list.map((t) => (
             <div
               key={t.conversation_id}
               className="flex items-center gap-3 p-3"
@@ -75,22 +101,31 @@ export default function MessagesRequests({ requests }: Props) {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => deny(t.conversation_id)}
+              {tab === "inbox" ? (
+                <Link
+                  href={`/messages/${t.conversation_id}`}
                   className="text-sm px-3 py-1.5 rounded border hover:bg-gray-50"
                 >
-                  Deny
-                </button>
-                <button
-                  type="button"
-                  onClick={() => accept(t.conversation_id)}
-                  className="text-sm px-3 py-1.5 rounded bg-gray-900 text-white hover:bg-gray-800"
-                >
-                  Accept
-                </button>
-              </div>
+                  Open
+                </Link>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => deny(t.conversation_id)}
+                    className="text-sm px-3 py-1.5 rounded border hover:bg-gray-50"
+                  >
+                    Deny
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => accept(t.conversation_id)}
+                    className="text-sm px-3 py-1.5 rounded border hover:bg-gray-50"
+                  >
+                    Accept
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>

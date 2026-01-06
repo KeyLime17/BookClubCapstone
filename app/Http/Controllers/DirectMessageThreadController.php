@@ -150,12 +150,11 @@ class DirectMessageThreadController extends Controller
                 u.name AS other_user_name,
                 u.avatar AS other_user_avatar,
                 dm.body AS last_body,
-                dm.created_at AS last_at,
-                p.invited_by
-            FROM conversation_participants p
-            JOIN conversations c ON c.id = p.conversation_id AND c.is_group = 0
+                dm.created_at AS last_at
+            FROM conversation_participants mep
+            JOIN conversations c ON c.id = mep.conversation_id AND c.is_group = 0
             JOIN conversation_participants op
-                ON op.conversation_id = c.id AND op.user_id <> p.user_id
+                ON op.conversation_id = c.id AND op.user_id <> mep.user_id
             JOIN users u ON u.id = op.user_id
             LEFT JOIN direct_messages dm
                 ON dm.id = (
@@ -164,14 +163,14 @@ class DirectMessageThreadController extends Controller
                     ORDER BY id DESC
                     LIMIT 1
                 )
-            WHERE p.user_id = ?
-            AND p.approved_at IS NULL
+            WHERE mep.user_id = ?
+            AND mep.approved_at IS NULL
             ORDER BY COALESCE(dm.created_at, c.created_at) DESC",
             [$uid]
         );
 
         return Inertia::render('MessagesRequests', [
-            'requests' => $rows,
+            'threads' => $rows,
         ]);
     }
 
