@@ -42,9 +42,36 @@ class DirectMessageThreadController extends Controller
             ORDER BY COALESCE(dm.created_at, c.created_at) DESC",
             [$uid]
         );
+        $requests = DB::select(
+            "SELECT
+                c.id AS conversation_id,
+                u.id AS other_user_id,
+                u.name AS other_user_name,
+                u.avatar AS other_user_avatar,
+                dm.body AS last_body,
+                dm.created_at AS last_at
+            FROM conversation_participants mep
+            JOIN conversations c ON c.id = mep.conversation_id AND c.is_group = 0
+            JOIN conversation_participants op
+                ON op.conversation_id = c.id AND op.user_id <> mep.user_id
+            JOIN users u ON u.id = op.user_id
+            LEFT JOIN direct_messages dm
+                ON dm.id = (
+                    SELECT id FROM direct_messages
+                    WHERE conversation_id = c.id
+                    ORDER BY id DESC
+                    LIMIT 1
+                )
+            WHERE mep.user_id = ?
+            AND mep.approved_at IS NULL
+            ORDER BY COALESCE(dm.created_at, c.created_at) DESC",
+            [$uid]
+        );
+
 
         return Inertia::render('MessagesInbox', [
-            'threads' => $rows,
+            'threads'  => $rows,
+            'requests' => $requests,
         ]);
     }
 
