@@ -106,10 +106,19 @@ Route::middleware('auth', 'not-banned')->group(function () {
         ->name('messages.store');
 
     Route::get('/api/dm/{conversation}/messages', [\App\Http\Controllers\DirectMessageApiController::class, 'index'])
-    ->whereNumber('conversation');
+        ->whereNumber('conversation');
 
     Route::post('/api/dm/{conversation}/messages', [\App\Http\Controllers\DirectMessageApiController::class, 'store'])
         ->whereNumber('conversation');
+
+    Route::post('/dm-requests/{conversation}/accept', [\App\Http\Controllers\DirectMessageRequestController::class, 'accept'])
+        ->whereNumber('conversation')
+        ->name('dm.requests.accept');
+
+    Route::post('/dm-requests/{conversation}/deny', [\App\Http\Controllers\DirectMessageRequestController::class, 'deny'])
+        ->whereNumber('conversation')
+        ->name('dm.requests.deny');
+
 
 
 

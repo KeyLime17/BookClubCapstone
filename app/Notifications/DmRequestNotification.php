@@ -23,7 +23,7 @@ class DmRequestNotification extends Notification
     public function toDatabase($notifiable): array
     {
         return [
-            'kind' => 'dm_request',
+            'type' => 'dm_request',
             'conversation_id' => $this->conversationId,
             'from_user_id' => $this->fromUserId,
             'from_user_name' => $this->fromUserName,

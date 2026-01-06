@@ -38,6 +38,7 @@ class DirectMessageThreadController extends Controller
                     LIMIT 1
                 )
             WHERE mep.user_id = ?
+              AND mep.approved_at IS NOT NULL
             ORDER BY COALESCE(dm.created_at, c.created_at) DESC",
             [$uid]
         );
@@ -57,7 +58,7 @@ class DirectMessageThreadController extends Controller
         $isIn = DB::selectOne(
             "SELECT 1 AS ok
              FROM conversation_participants
-             WHERE conversation_id = ? AND user_id = ?
+             WHERE conversation_id = ? AND user_id = ? AND approved_at IS NOT NULL
              LIMIT 1",
             [$conversation, $uid]
         );
@@ -94,7 +95,7 @@ class DirectMessageThreadController extends Controller
         return Inertia::render('DirectMessages', [
             'conversationId' => $conversation,
             'otherUser' => $other,
-            'messages' => array_reverse($messages), // oldest -> newest for UI
+            'messages' => array_reverse($messages),
         ]);
     }
 
@@ -115,7 +116,7 @@ class DirectMessageThreadController extends Controller
         $isIn = DB::selectOne(
             "SELECT 1 AS ok
              FROM conversation_participants
-             WHERE conversation_id = ? AND user_id = ?
+             WHERE conversation_id = ? AND user_id = ? AND approved_at IS NOT NULL
              LIMIT 1",
             [$conversation, $uid]
         );

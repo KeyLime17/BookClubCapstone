@@ -10,6 +10,12 @@ type Notif = {
     submission_id?: number;
     type?: string;
     title?: string;
+
+    // dm request
+    kind?: string;
+    conversation_id?: number;
+    from_user_id?: number;
+    from_user_name?: string;
   };
 };
 
@@ -22,12 +28,10 @@ export default function NotificationBell() {
 
   const [localNotifs, setLocalNotifs] = useState<Notif[]>(serverNotifs);
 
-  // keep local in sync when server props change
   useEffect(() => {
     setLocalNotifs(serverNotifs);
   }, [serverNotifs]);
 
-  // close when clicking outside
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
       if (!boxRef.current) return;
@@ -41,6 +45,24 @@ export default function NotificationBell() {
     setLocalNotifs((prev) => prev.filter((n) => n.id !== id));
     router.post(`/notifications/${id}/read`, {}, { preserveScroll: true });
   }
+
+  const acceptDm = (notifId: string, conversationId: number) => {
+    setLocalNotifs((prev) => prev.filter((n) => n.id !== notifId));
+    router.post(
+      `/dm-requests/${conversationId}/accept`,
+      { notification_id: notifId },
+      { preserveScroll: true }
+    );
+  };
+
+  const denyDm = (notifId: string, conversationId: number) => {
+    setLocalNotifs((prev) => prev.filter((n) => n.id !== notifId));
+    router.post(
+      `/dm-requests/${conversationId}/deny`,
+      { notification_id: notifId },
+      { preserveScroll: true }
+    );
+  };
 
   const unreadCount = localNotifs.length;
 
@@ -68,16 +90,58 @@ export default function NotificationBell() {
             <div className="p-4 text-sm text-foreground/70">No new notifications</div>
           ) : (
             <div className="max-h-96 overflow-auto">
-              {localNotifs.map((n) => (
-                <button
-                  key={n.id}
-                  type="button"
-                  onClick={() => markRead(n.id)}
-                  className="w-full text-left px-4 py-3 text-sm hover:bg-muted/40 border-b border-border last:border-b-0"
-                >
-                  {n.data?.message ?? "Notification"}
-                </button>
-              ))}
+              {localNotifs.map((n) => {
+                const isDm = n.data?.kind === "dm_request";
+                const convoId = Number(n.data?.conversation_id);
+
+                if (isDm && Number.isFinite(convoId)) {
+                  const fromName = n.data?.from_user_name ?? "Someone";
+                  return (
+                    <div
+                      key={n.id}
+                      className="w-full px-4 py-3 text-sm border-b border-border last:border-b-0"
+                    >
+                      <div className="font-medium">{fromName} wants to DM you.</div>
+
+                      <div className="mt-2 flex items-center gap-2">
+                        <button
+                          type="button"
+                          className="text-xs px-3 py-1.5 rounded bg-gray-900 text-white hover:bg-gray-800"
+                          onClick={() => acceptDm(n.id, convoId)}
+                        >
+                          Accept
+                        </button>
+                        <button
+                          type="button"
+                          className="text-xs px-3 py-1.5 rounded border hover:bg-muted/40"
+                          onClick={() => denyDm(n.id, convoId)}
+                        >
+                          Deny
+                        </button>
+
+                        <button
+                          type="button"
+                          className="ml-auto text-xs underline text-foreground/70 hover:text-foreground"
+                          onClick={() => markRead(n.id)}
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <button
+                    key={n.id}
+                    type="button"
+                    onClick={() => markRead(n.id)}
+                    className="w-full text-left px-4 py-3 text-sm hover:bg-muted/40 border-b border-border last:border-b-0"
+                  >
+                    {n.data?.message ?? "Notification"}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
