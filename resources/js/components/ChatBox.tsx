@@ -52,7 +52,6 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride, onUse
   //to replace alert
   const [notice, setNotice] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
 
-
   const safeJson = async (resp: Response) => {
     const text = await resp.text();
     try {
@@ -68,13 +67,10 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride, onUse
     let cancelled = false;
     (async () => {
       try {
-        const resp = await fetch(
-          `/api/clubs?only_public=1&book_id=${bookId}`,
-          {
-            credentials: 'include',
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-          }
-        );
+        const resp = await fetch(`/api/clubs?only_public=1&book_id=${bookId}`, {
+          credentials: 'include',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        });
         const json = await safeJson(resp);
         if (!resp.ok) throw new Error(`Clubs query failed (${resp.status})`);
 
@@ -115,9 +111,7 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride, onUse
         const ordered = [...data].reverse(); // oldest -> newest
         if (!cancelled) {
           setMessages(ordered);
-          lastIdRef.current = ordered.length
-            ? ordered[ordered.length - 1].id
-            : null;
+          lastIdRef.current = ordered.length ? ordered[ordered.length - 1].id : null;
         }
       } catch (e: any) {
         if (!cancelled) setError('Could not load messages.');
@@ -144,9 +138,7 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride, onUse
         if (!resp.ok) throw new Error(`Messages poll failed (${resp.status})`);
         const newestFirst: Message[] = json?.data ?? json;
         if (lastIdRef.current == null) return;
-        const newOnes = newestFirst
-          .filter((m) => m.id > lastIdRef.current!)
-          .reverse();
+        const newOnes = newestFirst.filter((m) => m.id > lastIdRef.current!).reverse();
         if (newOnes.length) {
           setMessages((prev) => [...prev, ...newOnes]);
           lastIdRef.current = newOnes[newOnes.length - 1].id;
@@ -180,7 +172,7 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride, onUse
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          Accept: 'application/json',
           'X-Requested-With': 'XMLHttpRequest',
           'X-XSRF-TOKEN': xsrf,
         },
@@ -225,23 +217,14 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride, onUse
     <div className="w-full border rounded-xl p-3 flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Discussion</h3>
-        {!clubId && !error && loading && (
-          <span className="text-sm opacity-70">Locating discussion…</span>
-        )}
+        {!clubId && !error && loading && <span className="text-sm opacity-70">Locating discussion…</span>}
       </div>
 
-      <div
-        ref={listRef}
-        className="h-64 overflow-y-auto space-y-2 border rounded-lg p-2 bg-white/50"
-      >
+      <div ref={listRef} className="h-64 overflow-y-auto space-y-2 border rounded-lg p-2 bg-white/50">
         {loading && <div>Loading messages…</div>}
         {error && <div className="text-red-600 text-sm">{error}</div>}
-        {!loading && !clubId && !error && (
-          <div className="opacity-70">
-            No public discussion for this book yet.
-          </div>
-        )}
-        {/* Usernames should be clickable */}
+        {!loading && !clubId && !error && <div className="opacity-70">No public discussion for this book yet.</div>}
+
         {messages.map((m) => {
           const isSystem = !m.user;
           const canDmThisUser = !!onUserClick && !!m.user && !!authUser && m.user.id !== authUser.id;
@@ -262,18 +245,13 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride, onUse
                   {m.user!.name}:
                 </button>
               ) : (
-                <span className="font-medium">
-                  {isSystem ? "System" : (m.user?.name ?? "Unknown")}:
-                </span>
-              )}{" "}
+                <span className="font-medium">{isSystem ? 'System' : (m.user?.name ?? 'Unknown')}:</span>
+              )}{' '}
               <span>{m.body}</span>
-              <span className="opacity-60 text-xs ml-2">
-                {new Date(m.created_at).toLocaleTimeString()}
-              </span>
+              <span className="opacity-60 text-xs ml-2">{new Date(m.created_at).toLocaleTimeString()}</span>
             </div>
           );
         })}
-
       </div>
 
       {/* Notice banner: to replace alert */}
@@ -308,10 +286,7 @@ export default function ChatBox({ bookId, canPost = false, clubIdOverride, onUse
         </div>
       ) : isMuted ? (
         <div className="text-sm text-red-600">
-          You are muted
-          {mutedUntil
-            ? ` until ${mutedUntil.toLocaleString()}.`
-            : '.'}
+          You are muted{mutedUntil ? ` until ${mutedUntil.toLocaleString()}.` : '.'}
         </div>
       ) : (
         <form onSubmit={send} className="flex gap-2">
