@@ -100,9 +100,11 @@ export default function AppLayout({ children }: PropsWithChildren) {
               <Link href="/clubs/private" className="hover:underline">
                 Private Clubs
               </Link>
+              {/*}
               <Link href="/messages" className="hover:underline">
                 Messages
               </Link>
+              */}
 
 
               {!!user?.is_admin && (

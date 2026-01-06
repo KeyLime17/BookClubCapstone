@@ -47,7 +47,7 @@ class DirectMessageThreadController extends Controller
         ]);
     }
 
-    public function show(Request $request, int $conversationId)
+    public function show(Request $request, int $conversation)
     {
         $me = $request->user();
         abort_unless($me, 401);
@@ -59,7 +59,7 @@ class DirectMessageThreadController extends Controller
              FROM conversation_participants
              WHERE conversation_id = ? AND user_id = ?
              LIMIT 1",
-            [$conversationId, $uid]
+            [$conversation, $uid]
         );
 
         abort_unless($isIn?->ok, 403);
@@ -71,7 +71,7 @@ class DirectMessageThreadController extends Controller
              JOIN users u ON u.id = p.user_id
              WHERE p.conversation_id = ? AND p.user_id <> ?
              LIMIT 1",
-            [$conversationId, $uid]
+            [$conversation, $uid]
         );
 
         $messages = DB::select(
@@ -82,23 +82,23 @@ class DirectMessageThreadController extends Controller
              WHERE dm.conversation_id = ?
              ORDER BY dm.id DESC
              LIMIT 50",
-            [$conversationId]
+            [$conversation]
         );
 
         //  mark “read” timestamp for this thread
         DB::table('conversation_participants')
-            ->where('conversation_id', $conversationId)
+            ->where('conversation_id', $conversation)
             ->where('user_id', $uid)
             ->update(['last_read_at' => Carbon::now(), 'updated_at' => Carbon::now()]);
 
         return Inertia::render('DirectMessages', [
-            'conversationId' => $conversationId,
+            'conversationId' => $conversation,
             'otherUser' => $other,
             'messages' => array_reverse($messages), // oldest -> newest for UI
         ]);
     }
 
-    public function store(Request $request, int $conversationId)
+    public function store(Request $request, int $conversation)
     {
         $me = $request->user();
         abort_unless($me, 401);
@@ -117,7 +117,7 @@ class DirectMessageThreadController extends Controller
              FROM conversation_participants
              WHERE conversation_id = ? AND user_id = ?
              LIMIT 1",
-            [$conversationId, $uid]
+            [$conversation, $uid]
         );
         abort_unless($isIn?->ok, 403);
 
@@ -126,7 +126,7 @@ class DirectMessageThreadController extends Controller
         ]);
 
         DB::table('direct_messages')->insert([
-            'conversation_id' => $conversationId,
+            'conversation_id' => $conversation,
             'sender_id' => $uid,
             'body' => $data['body'],
             'created_at' => now(),
