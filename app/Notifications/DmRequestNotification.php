@@ -27,6 +27,7 @@ class DmRequestNotification extends Notification
             'conversation_id' => $this->conversationId,
             'from_user_id' => $this->fromUserId,
             'from_user_name' => $this->fromUserName,
+            'message' => "{$this->fromUserName} wants to message you.",
         ];
     }
 }

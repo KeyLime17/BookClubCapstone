@@ -36,7 +36,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/dm/{conversation}/messages', [\App\Http\Controllers\DirectMessageApiController::class, 'index']);
     Route::post('/dm/{conversation}/messages', [\App\Http\Controllers\DirectMessageApiController::class, 'store'])
         ->middleware('throttle:30,1');
-    
+    Route::post('/dm-requests/{id}/accept', [\App\Http\Controllers\DirectMessageRequestController::class, 'accept'])
+    ->name('dm-requests.accept');
+
+    Route::post('/dm-requests/{id}/deny', [\App\Http\Controllers\DirectMessageRequestController::class, 'deny'])
+        ->name('dm-requests.deny');
+        
     
 });
 

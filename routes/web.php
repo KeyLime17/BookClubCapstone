@@ -113,11 +113,11 @@ Route::middleware('auth', 'not-banned')->group(function () {
 
     Route::post('/dm-requests/{conversation}/accept', [\App\Http\Controllers\DirectMessageRequestController::class, 'accept'])
         ->whereNumber('conversation')
-        ->name('dm.requests.accept');
+        ->name('dm-requests.accept');
 
     Route::post('/dm-requests/{conversation}/deny', [\App\Http\Controllers\DirectMessageRequestController::class, 'deny'])
         ->whereNumber('conversation')
-        ->name('dm.requests.deny');
+        ->name('dm-requests.deny');
 
 
 
