@@ -105,6 +105,13 @@ Route::middleware('auth', 'not-banned')->group(function () {
         ->whereNumber('conversation')
         ->name('messages.store');
 
+    Route::get('/api/dm/{conversation}/messages', [\App\Http\Controllers\DirectMessageApiController::class, 'index'])
+    ->whereNumber('conversation');
+
+    Route::post('/api/dm/{conversation}/messages', [\App\Http\Controllers\DirectMessageApiController::class, 'store'])
+        ->whereNumber('conversation');
+
+
 
 });
 
