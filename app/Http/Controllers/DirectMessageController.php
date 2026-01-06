@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Notifications\DmRequestNotification;
 
 class DirectMessageController extends Controller
 {
@@ -37,31 +38,40 @@ class DirectMessageController extends Controller
         }
 
         // Create new conversation + participants
-        return DB::transaction(function () use ($myId, $otherId) {
+        return DB::transaction(function () use ($me, $myId, $otherId, $user) {
             $conversationId = DB::table('conversations')->insertGetId([
                 'is_group' => 0,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
 
-        DB::table('conversation_participants')->insert([
-            [
-                'conversation_id' => $conversationId,
-                'user_id' => $myId,
-                'status' => 'accepted',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'conversation_id' => $conversationId,
-                'user_id' => $otherId,
-                'status' => 'pending',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-        ]);
+            DB::table('conversation_participants')->insert([
+                [
+                    'conversation_id' => $conversationId,
+                    'user_id' => $myId,
+                    'approved_at' => now(),
+                    'invited_by' => $myId,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
+                [
+                    'conversation_id' => $conversationId,
+                    'user_id' => $otherId,
+                    'approved_at' => null,
+                    'invited_by' => $myId,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
+            ]);
 
+            // notify the other user
+            $user->notify(new DmRequestNotification(
+                conversationId: (int) $conversationId,
+                fromUserId: (int) $myId,
+                fromUserName: (string) ($me->name ?? 'Someone')
+            ));
 
+            // sender can still land on the thread
             return redirect()->to("/messages/" . $conversationId);
         });
     }
