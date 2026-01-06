@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Carbon;
 
 class DirectMessageApiController extends Controller
 {
@@ -24,7 +23,7 @@ class DirectMessageApiController extends Controller
         );
         abort_unless($isIn?->ok, 403);
 
-        $messages = DB::select(
+        $rows = DB::select(
             "SELECT dm.id, dm.sender_id, dm.body, dm.created_at,
                     u.name AS sender_name
              FROM direct_messages dm
@@ -35,7 +34,8 @@ class DirectMessageApiController extends Controller
             [$conversation]
         );
 
-        return response()->json(array_reverse($messages));
+        // return newest-first like your chat API does
+        return response()->json(array_values($rows));
     }
 
     public function store(Request $request, int $conversation)
@@ -44,10 +44,6 @@ class DirectMessageApiController extends Controller
         abort_unless($me, 401);
 
         $uid = (int) $me->id;
-
-        if ($me->muted_until && Carbon::now()->lessThan($me->muted_until)) {
-            return response()->json(['message' => 'Muted'], 403);
-        }
 
         $isIn = DB::selectOne(
             "SELECT 1 AS ok

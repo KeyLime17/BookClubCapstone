@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import AppLayout from "@/layouts/AppLayout";
-import { router, Link, usePage } from "@inertiajs/react";
+import { Link, usePage } from "@inertiajs/react";
 
 type OtherUser = { id: number; name: string; avatar?: string | null };
 
@@ -18,7 +18,14 @@ type Props = {
   messages: Message[];
 };
 
-export default function DirectMessages({ conversationId, otherUser, messages }: Props) {
+function getCookie(name: string): string | null {
+  const match = document.cookie.match(
+    new RegExp('(?:^|; )' + name.replace(/([$?*|{}\]\\^])/g, '\\$1') + '=([^;]*)')
+  );
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+export default function DirectMessages({ conversationId, otherUser, messages: initialMessages }: Props) {
   const page = usePage<any>();
   const authUser = page.props.auth?.user as
     | { id: number; name: string; muted_until?: string | null }
@@ -28,17 +35,63 @@ export default function DirectMessages({ conversationId, otherUser, messages }: 
   const mutedUntil = mutedUntilStr ? new Date(mutedUntilStr) : null;
   const isMuted = !!mutedUntil && mutedUntil > new Date();
 
+  const [messages, setMessages] = useState<Message[]>(initialMessages ?? []);
   const [body, setBody] = useState("");
   const [notice, setNotice] = useState<{ type: "error" | "success"; text: string } | null>(null);
 
+  const lastIdRef = useRef<number | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    lastIdRef.current = messages.length ? messages[messages.length - 1].id : null;
+  }, []);
 
   useEffect(() => {
     if (!listRef.current) return;
     listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [messages.length]);
 
-  const send = (e: React.FormEvent) => {
+  const safeJson = async (resp: Response) => {
+    const text = await resp.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { __raw: text, __status: resp.status };
+    }
+  };
+
+  // Poll every 2s like ChatBox
+  useEffect(() => {
+    const fetchNew = async () => {
+      try {
+        const resp = await fetch(`/api/dm/${conversationId}/messages`, {
+          credentials: "include",
+          headers: { "X-Requested-With": "XMLHttpRequest" },
+        });
+        const json = await safeJson(resp);
+        if (!resp.ok) return;
+
+        const newestFirst: Message[] = Array.isArray(json?.data) ? json.data : json;
+        if (!Array.isArray(newestFirst) || lastIdRef.current == null) return;
+
+        const newOnes = newestFirst
+          .filter((m) => m.id > lastIdRef.current!)
+          .reverse();
+
+        if (newOnes.length) {
+          setMessages((prev) => [...prev, ...newOnes]);
+          lastIdRef.current = newOnes[newOnes.length - 1].id;
+        }
+      } catch {
+        // silent like ChatBox
+      }
+    };
+
+    const id = window.setInterval(fetchNew, 2000);
+    return () => window.clearInterval(id);
+  }, [conversationId]);
+
+  const send = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = body.trim();
     if (!trimmed) return;
@@ -56,25 +109,49 @@ export default function DirectMessages({ conversationId, otherUser, messages }: 
       return;
     }
 
-    router.post(
-      `/messages/${conversationId}`,
-      { body: trimmed },
-      {
-        preserveScroll: true,
-        onStart: () => setNotice(null),
-        onSuccess: () => {
-          setBody("");
-          setNotice(null);
+    const xsrf = getCookie("XSRF-TOKEN") || "";
+
+    try {
+      const resp = await fetch(`/api/dm/${conversationId}/messages`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+          "X-XSRF-TOKEN": xsrf,
         },
-        onError: (errors: any) => {
-          const msg =
-            errors?.body ||
-            errors?.message ||
-            "Could not send message. Please try again.";
-          setNotice({ type: "error", text: String(msg) });
-        },
+        body: JSON.stringify({ body: trimmed }),
+      });
+
+      const json = await safeJson(resp);
+
+      if (resp.status === 201) {
+        setNotice(null);
+        setBody("");
+        setMessages((prev) => [...prev, json]);
+        lastIdRef.current = json?.id ?? lastIdRef.current;
+        return;
       }
-    );
+
+      if (resp.status === 401) {
+        setNotice({ type: "error", text: "Please log in to send messages." });
+        return;
+      }
+
+      if (resp.status === 422) {
+        const msg =
+          json?.message ||
+          (json?.errors?.body?.[0] as string | undefined) ||
+          "Message rejected. Please try again.";
+        setNotice({ type: "error", text: msg });
+        return;
+      }
+
+      setNotice({ type: "error", text: "Could not send message. Please try again." });
+    } catch {
+      setNotice({ type: "error", text: "Network or server error." });
+    }
   };
 
   return (
@@ -88,12 +165,6 @@ export default function DirectMessages({ conversationId, otherUser, messages }: 
       <div className="w-full border rounded-xl p-3 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">Discussion</h3>
-
-          {otherUser ? (
-            <span className="text-sm opacity-70">
-              Messaging <span className="font-medium">{otherUser.name}</span>
-            </span>
-          ) : null}
         </div>
 
         <div
@@ -103,20 +174,15 @@ export default function DirectMessages({ conversationId, otherUser, messages }: 
           {messages.length === 0 ? (
             <div className="text-sm opacity-70">No messages yet.</div>
           ) : (
-            messages.map((m) => {
-              const mine = !!authUser && m.sender_id === authUser.id;
-              return (
-                <div key={m.id} className="text-sm">
-                  <span className={`font-medium ${mine ? "text-blue-700" : ""}`}>
-                    {m.sender_name}:
-                  </span>{" "}
-                  <span>{m.body}</span>
-                  <span className="opacity-60 text-xs ml-2">
-                    {new Date(m.created_at).toLocaleTimeString()}
-                  </span>
-                </div>
-              );
-            })
+            messages.map((m) => (
+              <div key={m.id} className="text-sm">
+                <span className="font-medium">{m.sender_name}:</span>{" "}
+                <span>{m.body}</span>
+                <span className="opacity-60 text-xs ml-2">
+                  {new Date(m.created_at).toLocaleTimeString()}
+                </span>
+              </div>
+            ))
           )}
         </div>
 
@@ -163,17 +229,11 @@ export default function DirectMessages({ conversationId, otherUser, messages }: 
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  if (body.trim() && !isMuted) {
-                    send(e as any);
-                  }
+                  if (body.trim() && !isMuted) void send(e as any);
                 }
               }}
             />
-            <button
-              className="px-4 py-2 rounded-lg border disabled:opacity-50"
-              type="submit"
-              disabled={!body.trim() || isMuted}
-            >
+            <button className="px-4 py-2 rounded-lg border disabled:opacity-50" type="submit" disabled={!body.trim() || isMuted}>
               Send
             </button>
           </form>

@@ -4,7 +4,9 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\{
     ClubController,
     MessageController,
-    InvitationController
+    InvitationController,
+    DirectMessageApiController
+
 };
 
 // Public/global clubs listing & details
@@ -24,11 +26,18 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Post messages
     Route::post('/clubs/{club}/messages', [MessageController::class, 'store'])
-        ->middleware('throttle:30,1'); // optional spam control
+        ->middleware('throttle:30,1'); // spam control
 
     // Private club invitations
     Route::post('/clubs/{club}/invites', [InvitationController::class, 'create']);
     Route::post('/invites/{token}/accept', [InvitationController::class, 'accept']);
+
+    //Direct Messages
+    Route::get('/dm/{conversation}/messages', [\App\Http\Controllers\DirectMessageApiController::class, 'index']);
+    Route::post('/dm/{conversation}/messages', [\App\Http\Controllers\DirectMessageApiController::class, 'store'])
+        ->middleware('throttle:30,1');
+    
+    
 });
 
 Route::middleware('auth:sanctum')->get('/users/search', function (Request $request) {
