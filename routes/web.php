@@ -104,6 +104,8 @@ Route::middleware('auth', 'not-banned')->group(function () {
     Route::post('/messages/{conversation}', [\App\Http\Controllers\DirectMessageThreadController::class, 'store'])
         ->whereNumber('conversation')
         ->name('messages.store');
+    Route::get('/messages/requests', [\App\Http\Controllers\DirectMessageThreadController::class, 'requests'])
+        ->name('messages.requests');
 
     Route::get('/api/dm/{conversation}/messages', [\App\Http\Controllers\DirectMessageApiController::class, 'index'])
         ->whereNumber('conversation');
@@ -111,16 +113,13 @@ Route::middleware('auth', 'not-banned')->group(function () {
     Route::post('/api/dm/{conversation}/messages', [\App\Http\Controllers\DirectMessageApiController::class, 'store'])
         ->whereNumber('conversation');
 
-    Route::post('/dm-requests/{conversation}/accept', [\App\Http\Controllers\DirectMessageRequestController::class, 'accept'])
+    Route::post('/messages/{conversation}/accept', [\App\Http\Controllers\DirectMessageRequestController::class, 'accept'])
         ->whereNumber('conversation')
-        ->name('dm-requests.accept');
+        ->name('messages.accept');
 
-    Route::post('/dm-requests/{conversation}/deny', [\App\Http\Controllers\DirectMessageRequestController::class, 'deny'])
+    Route::post('/messages/{conversation}/deny', [\App\Http\Controllers\DirectMessageRequestController::class, 'deny'])
         ->whereNumber('conversation')
-        ->name('dm-requests.deny');
-
-
-
+        ->name('messages.deny');
 
 });
 
